@@ -43,8 +43,12 @@ class Analytics {
   // Compute average pace (min/km) and avg HRV per cycle phase from runs
   static Map<CyclePhase, Map<String, dynamic>> phaseCorrelation(List<RunEntry> runs) {
     final grouped = <CyclePhase, List<RunEntry>>{};
-    for (var phase in CyclePhase.values) grouped[phase] = [];
-    for (var r in runs) grouped[r.phase]?.add(r);
+    for (var phase in CyclePhase.values) {
+      grouped[phase] = [];
+    }
+    for (var r in runs) {
+      grouped[r.phase]?.add(r);
+    }
 
     final out = <CyclePhase, Map<String, dynamic>>{};
     grouped.forEach((phase, list) {

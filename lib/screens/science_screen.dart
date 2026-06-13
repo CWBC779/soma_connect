@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import '../data/sample_data.dart';
 import '../themes/app_theme.dart';
-import '../widgets/shared_widgets.dart';
 
 class ScienceScreen extends StatelessWidget {
   const ScienceScreen({super.key});

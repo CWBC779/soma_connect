@@ -203,7 +203,7 @@ class _PhaseTable extends StatelessWidget {
           return TableRow(
             decoration: BoxDecoration(
               color: isBest
-                  ? FemoraTheme.sageLight.withOpacity(0.6)
+                  ? FemoraTheme.sageLight.withValues(alpha: 0.6)
                   : Colors.transparent,
             ),
             children: [
@@ -420,8 +420,9 @@ class _ScatterChart extends StatelessWidget {
         return List.generate(28, (i) {
           final day = i + 1;
           double base;
-          if (day <= 5) base = 5.5;
-          else if (day <= 13) base = 5.1;
+          if (day <= 5) {
+            base = 5.5;
+          } else if (day <= 13) base = 5.1;
           else if (day <= 16) base = 4.97;
           else base = 5.3;
           return ScatterSpot(
@@ -433,8 +434,9 @@ class _ScatterChart extends StatelessWidget {
         return List.generate(28, (i) {
           final day = i + 1;
           double base;
-          if (day <= 5) base = 58;
-          else if (day <= 13) base = 72;
+          if (day <= 5) {
+            base = 58;
+          } else if (day <= 13) base = 72;
           else if (day <= 16) base = 77;
           else base = 64;
           return ScatterSpot(
@@ -462,7 +464,7 @@ class _ScatterChart extends StatelessWidget {
                   s.y,
                   dotPainter: FlDotCirclePainter(
                     radius: 5,
-                    color: FemoraTheme.rose.withOpacity(0.55),
+                    color: FemoraTheme.rose.withValues(alpha: 0.55),
                     strokeColor: FemoraTheme.rose,
                     strokeWidth: 1.5,
                   ),

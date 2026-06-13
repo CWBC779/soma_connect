@@ -3,35 +3,41 @@ import 'package:google_fonts/google_fonts.dart';
 
 class FemoraTheme {
   // ── Colours ────────────────────────────────────────────────────────────────
-  static const Color rose = Color(0xFFC9476A);
-  static const Color roseLight = Color(0xFFF5DCE3);
-  static const Color roseMid = Color(0xFFE8A0B3);
+  // SOMA brand palette (somafemtech.com). Names kept for backwards-compat;
+  // values remapped to the navy/blue brand. Contrast tuned for WCAG AA.
+  //
+  // `rose` = primary brand navy (primary buttons, headings, key text).
+  // `sage` = bright secondary accent (icons, links, highlights).
+  // `amber` = text-safe deep accent. `lavender` = slate accent.
+  static const Color rose = Color(0xFF112347);       // primary / brand navy
+  static const Color roseLight = Color(0xFFDCE5F0);  // light brand tint (nav indicator, chips)
+  static const Color roseMid = Color(0xFFCBD6E2);    // mid brand tint (tonal buttons)
 
-  static const Color amber = Color(0xFFB8642A);
-  static const Color amberLight = Color(0xFFF5EAD8);
+  static const Color amber = Color(0xFF2E63C0);      // deep accent (safe for small text)
+  static const Color amberLight = Color(0xFFE2E8F5);
 
-  static const Color sage = Color(0xFF3A6B52);
-  static const Color sageLight = Color(0xFFDDEEE6);
+  static const Color sage = Color(0xFF3B76D7);       // secondary accent blue
+  static const Color sageLight = Color(0xFFDCEAFB);
 
-  static const Color lavender = Color(0xFF6B52A8);
-  static const Color lavenderLight = Color(0xFFE8E3F5);
+  static const Color lavender = Color(0xFF44566F);   // slate accent
+  static const Color lavenderLight = Color(0xFFE7ECF1);
 
-  static const Color warmGray = Color(0xFFF0ECE6);
-  static const Color warmBorder = Color(0xFFE2DCD4);
-  static const Color warmText = Color(0xFF7A6F65);
-  static const Color background = Color(0xFFFAF8F5);
-  static const Color cardBg = Color(0xFFFFFFFF);
-  static const Color ink = Color(0xFF1A1612);
+  static const Color warmGray = Color(0xFFEAF0F6);   // subtle surface
+  static const Color warmBorder = Color(0xFFD1DCE5); // borders
+  static const Color warmText = Color(0xFF5E7191);   // muted text (AA on bg: 4.6:1)
+  static const Color background = Color(0xFFF5F8FA); // page background
+  static const Color cardBg = Color(0xFFFFFFFF);     // cards / contrast surface
+  static const Color ink = Color(0xFF112347);        // primary text (navy)
 
-  // Phase colours
-  static const Color menstrualColor = Color(0xFFEDE8F5);
-  static const Color menstrualText = Color(0xFF6B52A8);
-  static const Color follicularColor = Color(0xFFDDEEE6);
-  static const Color follicularText = Color(0xFF3A6B52);
-  static const Color ovulationColor = Color(0xFFF5DCE3);
-  static const Color ovulationText = Color(0xFFC9476A);
-  static const Color lutealColor = Color(0xFFF5EAD8);
-  static const Color lutealText = Color(0xFFB8642A);
+  // Phase colours — light tinted background + AA-contrast text.
+  static const Color menstrualColor = Color(0xFFE3E7EE);
+  static const Color menstrualText = Color(0xFF3A4A63);
+  static const Color follicularColor = Color(0xFFDCEAFB);
+  static const Color follicularText = Color(0xFF2E63C0);
+  static const Color ovulationColor = Color(0xFFD6E4FC);
+  static const Color ovulationText = Color(0xFF1E4FA8);
+  static const Color lutealColor = Color(0xFFE7ECF1);
+  static const Color lutealText = Color(0xFF4F627F);
 
   // ── Typography ─────────────────────────────────────────────────────────────
   static TextTheme get textTheme => GoogleFonts.dmSansTextTheme().copyWith(

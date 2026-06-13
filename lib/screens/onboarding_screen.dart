@@ -272,7 +272,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       title: Text(option),
       onChanged: (v) {
         setState(() {
-          if (v == true) _dietSelected.add(option); else _dietSelected.remove(option);
+          if (v == true) {
+            _dietSelected.add(option);
+          } else {
+            _dietSelected.remove(option);
+          }
         });
       },
     );

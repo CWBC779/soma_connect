@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../models/models.dart';
-import '../themes/app_theme.dart';
 
 class SampleData {
   // ── Athlete ──────────────────────────────────────────────────────────────
@@ -67,49 +66,49 @@ class SampleData {
       emoji: '🧬',
       tag: 'Physiology',
       body: 'Oestrogen may act as an anabolic agent, supporting muscle protein synthesis. Some research suggests female athletes recover differently across cycle phases — though individual responses vary enormously.',
-      cardColor: Color(0xFFFDF5F7),
+      cardColor: Color(0xFFF4F7FB),
     ),
     ScienceFact(
       emoji: '🩸',
       tag: 'RED-S Awareness',
       body: 'Relative Energy Deficiency in Sport (RED-S) affects female runners at all levels. Under-fuelling impairs hormonal function, bone health, and performance — often invisibly at first.',
-      cardColor: Color(0xFFF5F9F7),
+      cardColor: Color(0xFFF1F6FB),
     ),
     ScienceFact(
       emoji: '❤️',
       tag: 'Heart health',
       body: 'Female athletes show distinct cardiac adaptations to endurance training. Studies suggest oestrogen may have cardioprotective effects, though the mechanisms are still being actively researched.',
-      cardColor: Color(0xFFF8F5FD),
+      cardColor: Color(0xFFF5F4FB),
     ),
     ScienceFact(
       emoji: '🦴',
       tag: 'Bone health',
       body: 'Bone density in female runners is influenced by training load, nutrition, and hormonal status. Running supports bone health, but energy availability matters significantly.',
-      cardColor: Color(0xFFF5F9F0),
+      cardColor: Color(0xFFF2F7FA),
     ),
     ScienceFact(
       emoji: '😴',
       tag: 'Sleep & recovery',
       body: 'Research indicates that women may experience more sleep disruption in the luteal phase due to rising progesterone. Prioritising sleep during this phase may support recovery and mood.',
-      cardColor: Color(0xFFFDF8F3),
+      cardColor: Color(0xFFF6F8FC),
     ),
     ScienceFact(
       emoji: '🏃‍♀️',
       tag: 'Research history',
       body: 'Until the 1990s, most exercise science research excluded women. Female performance science is growing rapidly — you are part of that movement by participating in research platforms.',
-      cardColor: Color(0xFFF0F5FD),
+      cardColor: Color(0xFFEFF4FC),
     ),
     ScienceFact(
       emoji: '🧠',
       tag: 'Neuroscience',
       body: 'Brain regions governing effort perception and mood are influenced by oestrogen and progesterone. This may partly explain why perceived exertion can fluctuate across the cycle.',
-      cardColor: Color(0xFFFDF5F0),
+      cardColor: Color(0xFFF4F6FA),
     ),
     ScienceFact(
       emoji: '💧',
       tag: 'Hydration',
       body: 'Plasma volume and thermoregulation shift across the menstrual cycle. Some athletes find they need slightly more fluid in the late luteal phase when core temperature is slightly elevated.',
-      cardColor: Color(0xFFF5FDF8),
+      cardColor: Color(0xFFF3F8FB),
     ),
   ];
 }

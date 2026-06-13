@@ -107,7 +107,7 @@ class _TodayRecoCard extends StatelessWidget {
           Text(
             reco.note,
             style: const TextStyle(
-                fontSize: 13, color: Color(0xFF7A2A42), height: 1.5),
+                fontSize: 13, color: FemoraTheme.ink, height: 1.5),
           ),
           const SizedBox(height: 12),
           IntensityDots(intensity: reco.intensity),
@@ -134,7 +134,7 @@ class _DayRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       color: isFirst
-          ? FemoraTheme.roseLight.withOpacity(0.3)
+          ? FemoraTheme.roseLight.withValues(alpha: 0.3)
           : Colors.transparent,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: Row(
