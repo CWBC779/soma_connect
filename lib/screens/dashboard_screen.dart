@@ -5,6 +5,7 @@ import '../models/models.dart';
 import '../data/sample_data.dart';
 import '../themes/app_theme.dart';
 import '../widgets/shared_widgets.dart';
+import '../widgets/strava_connect_button.dart';
 import '../services/analytics.dart';
 
 class DashboardScreen extends StatefulWidget {
@@ -70,6 +71,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
               style: const TextStyle(
                   fontSize: 14, color: FemoraTheme.warmText),
             ),
+
+            const SizedBox(height: 16),
+
+            // ── Connect Strava ───────────────────────────────────────
+            const StravaConnectCard(),
 
             const SizedBox(height: 20),
 
