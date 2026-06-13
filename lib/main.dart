@@ -1,5 +1,7 @@
-﻿import 'package:flutter/material.dart';
+﻿import 'dart:async';
+import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'services/run_repository.dart';
 import 'screens/dashboard_screen.dart';
 import 'screens/training_plan_screen.dart';
 import 'screens/insights_screen.dart';
@@ -47,6 +49,8 @@ class _AppEntryState extends State<AppEntry> {
     await Future.delayed(const Duration(milliseconds: 1500));
     final prefs = await SharedPreferences.getInstance();
     final hasCompletedOnboarding = prefs.getBool('hasCompletedOnboarding') ?? false;
+    // Load cycle info + sync Strava in the background (won't block the splash).
+    unawaited(RunRepository.instance.init());
     setState(() {
       _isLoading = false;
       _showOnboarding = !hasCompletedOnboarding;

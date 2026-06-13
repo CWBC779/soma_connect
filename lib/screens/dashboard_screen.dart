@@ -6,7 +6,9 @@ import '../data/sample_data.dart';
 import '../themes/app_theme.dart';
 import '../widgets/shared_widgets.dart';
 import '../widgets/strava_connect_button.dart';
+import '../widgets/cycle_setup_card.dart';
 import '../services/analytics.dart';
+import '../services/run_repository.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -41,23 +43,35 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final athlete = SampleData.athlete;
-    final name = _displayName ?? athlete.name;
+    return ListenableBuilder(
+      listenable: RunRepository.instance,
+      builder: (context, _) {
+        final repo = RunRepository.instance;
+        final athlete = SampleData.athlete;
+        final name = _displayName ?? athlete.name;
 
-    final now = DateTime.now();
-    final dateLabel = '${now.day.toString().padLeft(2, '0')}/${now.month.toString().padLeft(2, '0')}/${now.year}';
+        final now = DateTime.now();
+        final dateLabel = '${now.day.toString().padLeft(2, '0')}/${now.month.toString().padLeft(2, '0')}/${now.year}';
 
-    // live analytics
-    final recovery = Analytics.recoveryFromLoad(SampleData.runs, now);
-    final readiness = Analytics.readiness(hrv: athlete.hrv.toDouble(), sleepHours: athlete.sleepHours, recovery: recovery);
-    final weekKm = Analytics.weeklyLoadKm(SampleData.runs, now);
-    final weeklyProgressValue = Analytics.weeklyProgress(SampleData.runs, now, athlete.weeklyGoalKm);
+        // Data source: real Strava runs when connected + cycle set, else demo.
+        final runs = repo.runs;
+        final recovery = Analytics.recoveryFromLoad(runs, now);
+        final readiness = Analytics.readiness(hrv: athlete.hrv.toDouble(), sleepHours: athlete.sleepHours, recovery: recovery);
+        final weekKm = Analytics.weeklyLoadKm(runs, now);
+        final weeklyProgressValue = Analytics.weeklyProgress(runs, now, athlete.weeklyGoalKm);
 
-    return Scaffold(
-      body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.all(20),
-          children: [
+        final cycleDay = repo.cycleDayToday ?? athlete.cycleDay;
+        final cycleLength = repo.hasCycle ? repo.cycleLength : athlete.cycleLength;
+        final phaseToday = repo.phaseToday ?? athlete.currentPhase;
+        final phaseLabel = repo.phaseToday?.label ?? athlete.currentPhaseLabel;
+        final latest = runs.isEmpty ? null : runs.reduce((a, b) => a.date.isAfter(b.date) ? a : b);
+        final avgPace = _avgPaceLabel(runs);
+
+        return Scaffold(
+          body: SafeArea(
+            child: ListView(
+              padding: const EdgeInsets.all(20),
+              children: [
             // ── Header ───────────────────────────────────────────────
             Text(
               '${_greeting()}, $name ✦',
@@ -67,15 +81,37 @@ class _DashboardScreenState extends State<DashboardScreen> {
             Text(dateLabel, style: Theme.of(context).textTheme.bodyMedium),
             const SizedBox(height: 6),
             Text(
-              'Day ${athlete.cycleDay} of your cycle',
+              'Day $cycleDay of your cycle',
               style: const TextStyle(
                   fontSize: 14, color: FemoraTheme.warmText),
             ),
+            if (repo.loading) ...[
+              const SizedBox(height: 10),
+              const LinearProgressIndicator(minHeight: 2),
+            ],
+            if (repo.isReal) ...[
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  const Icon(Icons.bolt, size: 14, color: FemoraTheme.sage),
+                  const SizedBox(width: 4),
+                  Text('Live Strava data · ${runs.length} runs',
+                      style: const TextStyle(
+                          fontSize: 12, color: FemoraTheme.sage)),
+                ],
+              ),
+            ],
 
             const SizedBox(height: 16),
 
             // ── Connect Strava ───────────────────────────────────────
-            const StravaConnectCard(),
+            StravaConnectCard(
+                onChanged: () => RunRepository.instance.refresh()),
+
+            if (!repo.hasCycle) ...[
+              const SizedBox(height: 12),
+              const CycleSetupCard(),
+            ],
 
             const SizedBox(height: 20),
 
@@ -101,8 +137,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               const SectionLabel('estimated phase'),
                               const SizedBox(height: 6),
                               PhaseBadge(
-                                athlete.currentPhase,
-                                customLabel: athlete.currentPhaseLabel,
+                                phaseToday,
+                                customLabel: phaseLabel,
                               ),
                               const SizedBox(height: 14),
                               ProgressRow(
@@ -130,7 +166,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     ),
                     const SizedBox(height: 14),
                     InsightBanner(
-                      text: '${athlete.currentPhaseLabel} is associated with rising energy in many athletes — consider a quality session if you feel up for it.',
+                      text: '$phaseLabel is associated with rising energy in many athletes — consider a quality session if you feel up for it.',
                       emoji: '📈',
                     ),
                   ],
@@ -142,22 +178,26 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
             // ── Quick Metrics ────────────────────────────────────────
             Row(
-              children: const [
+              children: [
                 Expanded(
                   child: MetricTile(
-                    value: '6.2',
+                    value: latest != null
+                        ? latest.distanceKm.toStringAsFixed(1)
+                        : '--',
                     unit: 'km',
-                    label: 'yesterday\'s run',
-                    sub: '↑ +8% vs avg',
+                    label: 'latest run',
+                    sub: latest != null
+                        ? '${latest.date.day}/${latest.date.month}'
+                        : 'no runs yet',
                   ),
                 ),
-                SizedBox(width: 12),
+                const SizedBox(width: 12),
                 Expanded(
                   child: MetricTile(
-                    value: '5:12',
+                    value: avgPace,
                     unit: '/km',
                     label: 'average pace',
-                    sub: 'Best phase',
+                    sub: repo.isReal ? 'across ${runs.length} runs' : 'demo data',
                     subColor: FemoraTheme.rose,
                   ),
                 ),
@@ -176,8 +216,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     const SectionLabel('cycle phase — this month'),
                     const SizedBox(height: 12),
                     _CycleTimeline(
-                      cycleDay: SampleData.athlete.cycleDay,
-                      cycleLength: SampleData.athlete.cycleLength,
+                      cycleDay: cycleDay,
+                      cycleLength: cycleLength,
                     ),
                   ],
                 ),
@@ -273,10 +313,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
 
             const SizedBox(height: 20),
-          ],
-        ),
-      ),
+              ],
+            ),
+          ),
+        );
+      },
     );
+  }
+
+  String _avgPaceLabel(List<RunEntry> runs) {
+    final valid = runs.where((r) => r.distanceKm > 0).toList();
+    if (valid.isEmpty) return '--';
+    final avg = valid.map((r) => r.paceMinPerKm).fold(0.0, (a, b) => a + b) / valid.length;
+    final totalSeconds = (avg * 60).round();
+    return '${totalSeconds ~/ 60}:${(totalSeconds % 60).toString().padLeft(2, '0')}';
   }
 }
 
