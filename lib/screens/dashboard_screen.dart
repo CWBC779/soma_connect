@@ -297,12 +297,7 @@ class _ActivityMeter extends StatelessWidget {
             children: [
               Text(
                 '${(value * 100).round()}%',
-                style: const TextStyle(
-                  fontSize: 26,
-                  fontWeight: FontWeight.w500,
-                  color: FemoraTheme.ink,
-                  fontFamily: 'DM Serif Display',
-                ),
+                style: FemoraTheme.serif(fontSize: 26, fontWeight: FontWeight.w500),
               ),
               const Text(
                 'readiness',

@@ -40,43 +40,70 @@ class FemoraTheme {
   static const Color lutealText = Color(0xFF4F627F);
 
   // ── Typography ─────────────────────────────────────────────────────────────
-  static TextTheme get textTheme => GoogleFonts.dmSansTextTheme().copyWith(
-        displayLarge: GoogleFonts.dmSerifDisplay(
-          fontSize: 32,
-          color: ink,
-          fontWeight: FontWeight.w400,
-        ),
-        displayMedium: GoogleFonts.dmSerifDisplay(
-          fontSize: 26,
-          color: ink,
-          fontWeight: FontWeight.w400,
-        ),
-        displaySmall: GoogleFonts.dmSerifDisplay(
-          fontSize: 22,
-          color: ink,
-          fontWeight: FontWeight.w400,
-        ),
-        headlineMedium: GoogleFonts.dmSans(
-          fontSize: 17,
-          color: ink,
-          fontWeight: FontWeight.w500,
-        ),
-        bodyLarge: GoogleFonts.dmSans(
-          fontSize: 15,
-          color: ink,
-          fontWeight: FontWeight.w400,
-        ),
-        bodyMedium: GoogleFonts.dmSans(
-          fontSize: 13,
-          color: ink,
-          fontWeight: FontWeight.w400,
-        ),
-        bodySmall: GoogleFonts.dmSans(
-          fontSize: 11,
-          color: warmText,
-          fontWeight: FontWeight.w400,
-        ),
-        labelSmall: GoogleFonts.dmSans(
+  //
+  // Brand fonts are LICENSED (not free / not on Google Fonts):
+  //   Headers  → Ogg (Sharp Type); fallbacks Canela / Chronicle Display.
+  //   Body/sub → LL Circular (Lineto).
+  //
+  // To enable them: license the fonts, drop the files into assets/fonts/, and
+  // un-comment the `fonts:` block in pubspec.yaml. Until then, these helpers
+  // request the real families first and gracefully fall back to the closest
+  // free Google Fonts match (Fraunces for the serif, Outfit for the sans), so
+  // nothing breaks and the real fonts take over automatically once added.
+  static const String headerFontFamily = 'Ogg';
+  static const List<String> headerFontFallback = ['Canela', 'Chronicle Display', 'Fraunces'];
+  static const String bodyFontFamily = 'Circular'; // LL Circular
+  static const List<String> bodyFontFallback = ['Outfit'];
+
+  /// Serif style for headers (Ogg → Fraunces fallback).
+  static TextStyle serif({
+    required double fontSize,
+    Color color = ink,
+    FontWeight fontWeight = FontWeight.w400,
+    double? height,
+    double? letterSpacing,
+  }) =>
+      // Calling GoogleFonts.fraunces registers the fallback family at runtime;
+      // we then prefer the licensed `Ogg` family if it is bundled.
+      GoogleFonts.fraunces(
+        fontSize: fontSize,
+        color: color,
+        fontWeight: fontWeight,
+        height: height,
+        letterSpacing: letterSpacing,
+      ).copyWith(
+        fontFamily: headerFontFamily,
+        fontFamilyFallback: headerFontFallback,
+      );
+
+  /// Sans style for body text and subheaders (LL Circular → Outfit fallback).
+  static TextStyle sans({
+    required double fontSize,
+    Color color = ink,
+    FontWeight fontWeight = FontWeight.w400,
+    double? height,
+    double? letterSpacing,
+  }) =>
+      GoogleFonts.outfit(
+        fontSize: fontSize,
+        color: color,
+        fontWeight: fontWeight,
+        height: height,
+        letterSpacing: letterSpacing,
+      ).copyWith(
+        fontFamily: bodyFontFamily,
+        fontFamilyFallback: bodyFontFallback,
+      );
+
+  static TextTheme get textTheme => GoogleFonts.outfitTextTheme().copyWith(
+        displayLarge: serif(fontSize: 32),
+        displayMedium: serif(fontSize: 26),
+        displaySmall: serif(fontSize: 22),
+        headlineMedium: sans(fontSize: 17, fontWeight: FontWeight.w500),
+        bodyLarge: sans(fontSize: 15),
+        bodyMedium: sans(fontSize: 13),
+        bodySmall: sans(fontSize: 11, color: warmText),
+        labelSmall: sans(
           fontSize: 11,
           color: warmText,
           fontWeight: FontWeight.w500,
@@ -115,11 +142,7 @@ class FemoraTheme {
           elevation: 0,
           scrolledUnderElevation: 1,
           shadowColor: warmBorder,
-          titleTextStyle: GoogleFonts.dmSerifDisplay(
-            fontSize: 22,
-            color: rose,
-            fontWeight: FontWeight.w400,
-          ),
+          titleTextStyle: serif(fontSize: 22, color: rose),
         ),
         navigationBarTheme: NavigationBarThemeData(
           backgroundColor: cardBg,
@@ -129,17 +152,9 @@ class FemoraTheme {
           indicatorColor: roseLight,
           labelTextStyle: WidgetStateProperty.resolveWith((states) {
             if (states.contains(WidgetState.selected)) {
-              return GoogleFonts.dmSans(
-                fontSize: 11,
-                fontWeight: FontWeight.w500,
-                color: rose,
-              );
+              return sans(fontSize: 11, fontWeight: FontWeight.w500, color: rose);
             }
-            return GoogleFonts.dmSans(
-              fontSize: 11,
-              fontWeight: FontWeight.w400,
-              color: warmText,
-            );
+            return sans(fontSize: 11, fontWeight: FontWeight.w400, color: warmText);
           }),
           iconTheme: WidgetStateProperty.resolveWith((states) {
             if (states.contains(WidgetState.selected)) {
@@ -155,7 +170,7 @@ class FemoraTheme {
         ),
         chipTheme: ChipThemeData(
           backgroundColor: warmGray,
-          labelStyle: GoogleFonts.dmSans(fontSize: 12, color: warmText),
+          labelStyle: sans(fontSize: 12, color: warmText),
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(20),

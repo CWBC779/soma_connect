@@ -60,6 +60,30 @@ flutter:
   # the material Icons class.
   uses-material-design: true
 
+  # ── SOMA brand fonts (LICENSED — not bundled) ──────────────────────────────
+  # Ogg (headers) and LL Circular (body/subheaders) are commercial fonts.
+  # Until they are licensed and the font files are added under assets/fonts/,
+  # the app falls back to Fraunces / Outfit (see lib/themes/app_theme.dart).
+  #
+  # To enable the real fonts:
+  #   1. Buy/obtain the .otf or .ttf files.
+  #   2. Place them in assets/fonts/ (see assets/fonts/README.md).
+  #   3. Un-comment the block below, matching the weights you actually have.
+  #
+  # fonts:
+  #   - family: Ogg
+  #     fonts:
+  #       - asset: assets/fonts/Ogg-Regular.otf
+  #       - asset: assets/fonts/Ogg-Medium.otf
+  #         weight: 500
+  #   - family: Circular
+  #     fonts:
+  #       - asset: assets/fonts/LLCircular-Book.otf
+  #       - asset: assets/fonts/LLCircular-Medium.otf
+  #         weight: 500
+  #       - asset: assets/fonts/LLCircular-Bold.otf
+  #         weight: 700
+
   # To add assets to your application, add an assets section, like this:
   # assets:
   #   - images/a_dot_burr.jpeg

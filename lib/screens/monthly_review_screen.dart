@@ -143,12 +143,7 @@ class _MonthStat extends StatelessWidget {
         children: [
           Text(
             number,
-            style: const TextStyle(
-              fontSize: 26,
-              fontWeight: FontWeight.w400,
-              color: FemoraTheme.ink,
-              fontFamily: 'DM Serif Display',
-            ),
+            style: FemoraTheme.serif(fontSize: 26),
           ),
           const SizedBox(height: 3),
           Text(label,
@@ -349,12 +344,7 @@ class _ShareBanner extends StatelessWidget {
         children: [
           Text(
             'May looked great on you',
-            style: const TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.w400,
-              color: Colors.white,
-              fontFamily: 'DM Serif Display',
-            ),
+            style: FemoraTheme.serif(fontSize: 22, color: Colors.white),
           ),
           const SizedBox(height: 6),
           const Text(
