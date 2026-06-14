@@ -8,6 +8,7 @@ import '../widgets/strava_connect_button.dart';
 import '../widgets/cycle_setup_card.dart';
 import '../services/analytics.dart';
 import '../services/run_repository.dart';
+import 'cycle_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -215,38 +216,52 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
                 const SizedBox(height: 12),
 
-                // ── Cycle phase timeline ─────────────────────────────
+                // ── Cycle phase timeline (tap to open Cycle page) ────
                 Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          mainAxisAlignment:
-                              MainAxisAlignment.spaceBetween,
-                          children: [
-                            const SectionLabel('cycle phase — this month'),
-                            if (repo.hasCycle)
-                              Text('Day ${repo.cycleDayToday}',
-                                  style: const TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w600,
-                                      color: FemoraTheme.rose)),
-                          ],
-                        ),
-                        const SizedBox(height: 14),
-                        if (repo.hasCycle)
-                          _CycleTimeline(
-                            cycleDay: repo.cycleDayToday ?? 1,
-                            cycleLength: repo.cycleLength,
-                          )
-                        else
-                          Text(
-                            'Set your last period date above to see your estimated cycle phases.',
-                            style: Theme.of(context).textTheme.bodySmall,
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(16),
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const CycleScreen()),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment:
+                                MainAxisAlignment.spaceBetween,
+                            children: [
+                              const SectionLabel(
+                                  'cycle phase — this month'),
+                              Row(
+                                children: [
+                                  if (repo.hasCycle)
+                                    Text('Day ${repo.cycleDayToday}',
+                                        style: const TextStyle(
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w600,
+                                            color: FemoraTheme.rose)),
+                                  const Icon(Icons.chevron_right,
+                                      size: 18,
+                                      color: FemoraTheme.warmText),
+                                ],
+                              ),
+                            ],
                           ),
-                      ],
+                          const SizedBox(height: 14),
+                          if (repo.hasCycle)
+                            _CycleTimeline(
+                              cycleDay: repo.cycleDayToday ?? 1,
+                              cycleLength: repo.cycleLength,
+                            )
+                          else
+                            Text(
+                              'Tap to log your last period date and see your estimated cycle phases.',
+                              style: Theme.of(context).textTheme.bodySmall,
+                            ),
+                        ],
+                      ),
                     ),
                   ),
                 ),

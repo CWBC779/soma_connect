@@ -13,6 +13,7 @@ import 'screens/science_screen.dart';
 import 'screens/splash_screen.dart';
 import 'screens/welcome_screen.dart';
 import 'screens/consent_screen.dart';
+import 'screens/setup_done_screen.dart';
 import 'themes/app_theme.dart';
 
 Future<void> main() async {
@@ -53,6 +54,7 @@ class _AppEntryState extends State<AppEntry> {
   bool _loading = true;
   bool _signedIn = false;
   bool _consented = false;
+  bool _seenDone = false;
   bool _handlingCode = false;
 
   @override
@@ -115,15 +117,25 @@ class _AppEntryState extends State<AppEntry> {
           .maybeSingle();
       consented = row != null && row['consented_at'] != null;
     } catch (_) {}
+    bool seenDone = false;
     if (consented) {
       await RunRepository.instance.init();
+      final prefs = await SharedPreferences.getInstance();
+      seenDone = prefs.getBool('seen_setup_done') ?? false;
     }
     if (!mounted) return;
     setState(() {
       _signedIn = true;
       _consented = consented;
+      _seenDone = seenDone;
       _loading = false;
     });
+  }
+
+  Future<void> _completeDone() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('seen_setup_done', true);
+    if (mounted) setState(() => _seenDone = true);
   }
 
   @override
@@ -131,6 +143,7 @@ class _AppEntryState extends State<AppEntry> {
     if (_loading) return const SplashScreen();
     if (!_signedIn) return const WelcomeScreen();
     if (!_consented) return ConsentScreen(onConsented: _evaluate);
+    if (!_seenDone) return SetupDoneScreen(onContinue: _completeDone);
     return const AppShell();
   }
 }

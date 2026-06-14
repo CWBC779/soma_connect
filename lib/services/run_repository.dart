@@ -20,6 +20,7 @@ class RunRepository extends ChangeNotifier {
   DateTime? _lastPeriodStart;
   int _cycleLength = 28;
   double _weeklyGoalKm = 30;
+  List<DateTime> _periodStarts = const [];
 
   SupabaseClient get _sb => Supabase.instance.client;
 
@@ -31,6 +32,17 @@ class RunRepository extends ChangeNotifier {
   int get cycleLength => _cycleLength;
   bool get hasCycle => _lastPeriodStart != null;
   double get weeklyGoalKm => _weeklyGoalKm;
+  List<DateTime> get periodStarts => _periodStarts;
+
+  /// Total km run per calendar day (local date), for the activity heatmap.
+  Map<DateTime, double> dailyKm() {
+    final out = <DateTime, double>{};
+    for (final r in _runs) {
+      final d = DateTime(r.date.year, r.date.month, r.date.day);
+      out[d] = (out[d] ?? 0) + r.distanceKm;
+    }
+    return out;
+  }
   String? get lastError => StravaService.instance.lastError;
 
   CycleEstimator? get estimator => _lastPeriodStart == null
@@ -64,6 +76,15 @@ class RunRepository extends ChangeNotifier {
             DateTime.tryParse(row['last_period_start'].toString());
         _cycleLength = (row['cycle_length'] as num?)?.toInt() ?? 28;
       }
+      final all = await _sb
+          .from('cycles')
+          .select('last_period_start')
+          .eq('user_id', uid)
+          .order('last_period_start', ascending: false);
+      _periodStarts = (all as List)
+          .map((r) => DateTime.tryParse(r['last_period_start'].toString()))
+          .whereType<DateTime>()
+          .toList();
     } catch (e) {
       debugPrint('load cycle failed: $e');
     }
@@ -140,7 +161,8 @@ class RunRepository extends ChangeNotifier {
   }
 
   Future<void> setCycle(DateTime start, int length) async {
-    _lastPeriodStart = DateTime(start.year, start.month, start.day);
+    final day = DateTime(start.year, start.month, start.day);
+    _lastPeriodStart = day;
     _cycleLength = length;
     notifyListeners();
     final uid = _sb.auth.currentUser?.id;
@@ -148,18 +170,50 @@ class RunRepository extends ChangeNotifier {
       try {
         await _sb.from('cycles').insert({
           'user_id': uid,
-          'last_period_start':
-              _lastPeriodStart!.toIso8601String().split('T').first,
+          'last_period_start': day.toIso8601String().split('T').first,
           'cycle_length': length,
         });
         await _sb
             .from('profiles')
             .update({'cycle_length': length}).eq('user_id', uid);
+        await _loadCycle();
       } catch (e) {
         debugPrint('save cycle failed: $e');
       }
     }
     // Re-tag existing runs server-side with the new cycle, then reload.
+    await syncFromStrava();
+  }
+
+  /// Log a new period start (current avg cycle length).
+  Future<void> logPeriodStart(DateTime date) => setCycle(date, _cycleLength);
+
+  /// Change average cycle length without logging a new period.
+  Future<void> setCycleLength(int length) async {
+    _cycleLength = length;
+    notifyListeners();
+    final uid = _sb.auth.currentUser?.id;
+    if (uid != null) {
+      try {
+        await _sb
+            .from('profiles')
+            .update({'cycle_length': length}).eq('user_id', uid);
+        final latest = await _sb
+            .from('cycles')
+            .select('id')
+            .eq('user_id', uid)
+            .order('recorded_at', ascending: false)
+            .limit(1)
+            .maybeSingle();
+        if (latest != null) {
+          await _sb
+              .from('cycles')
+              .update({'cycle_length': length}).eq('id', latest['id']);
+        }
+      } catch (e) {
+        debugPrint('set cycle length failed: $e');
+      }
+    }
     await syncFromStrava();
   }
 
