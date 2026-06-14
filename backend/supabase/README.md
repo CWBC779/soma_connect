@@ -1,68 +1,108 @@
-# Strava OAuth backend (Supabase Edge Function)
+# SOMA Connect research backend (Supabase)
 
-This function keeps your Strava **client secret** off users' devices. The app
-never sees the secret — it only calls this function to exchange the OAuth
-`code`, refresh tokens, and fetch activities.
+Robust, secure backend for a 6-month longitudinal study: per-participant
+accounts (email magic link), Row-Level Security, server-side Strava tokens,
+webhook + nightly capture, and a pseudonymised dataset you can export for ML.
 
-## 1. Register a Strava API application
+> **Plan note:** for a live study use the **Supabase Pro plan (~$25/mo)** — the
+> free tier pauses after 7 days of inactivity and has no daily backups.
 
-1. Go to https://www.strava.com/settings/api and create an app.
-2. Note the **Client ID** and **Client Secret**.
-3. Set **Authorization Callback Domain** to your hosting domain (domain only,
-   no `https://`, no path):
-   ```
-   cwbc779.github.io
-   ```
-   (Strava only allows one callback domain. For local web testing use
-   `localhost`.)
+## Architecture
 
-## 2. Deploy the function
+```
+Participant (app, logged in via email magic link)
+      │  Supabase JWT
+      ▼
+strava-auth  ── stores Strava tokens server-side, backfills runs
+Strava ── webhook ──▶ strava-webhook ── stores each new run
+pg_cron (nightly) ──▶ strava-sync ── catches anything missed
+      ▼
+Postgres: profiles · cycles · runs · strava_tokens   (RLS on all)
+```
 
-With the Supabase CLI installed, run these **from the `backend` folder** (this
-`supabase/` directory must be in the current directory):
+Tables (see `migrations/`):
+- **profiles** — pseudonymous `user_id`, consent record, demographics, cycle length.
+- **cycles** — period-start dates over time.
+- **runs** — the ML training table (date, distance, pace, HR, estimated phase/day).
+- **strava_tokens** — server-side token vault (service-role only; never on device).
 
+The only PII (email) lives in Supabase's managed `auth.users`, separate from the
+research tables. Researchers query/export everything via the service role.
+
+## One-time setup
+
+### 1. Apply the schema
+From the `backend` folder (project linked):
 ```powershell
-cd backend
-supabase login
-supabase link --project-ref YOUR_PROJECT_REF
+supabase db push
+```
+Or paste `migrations/20260614000001_init.sql` into the Supabase **SQL Editor**.
+
+### 2. Enable email auth
+Dashboard → **Authentication → Providers → Email** → enable. Then
+**Authentication → URL Configuration** → add your site URL
+`https://cwbc779.github.io/soma_connect/` to the redirect allow-list.
+
+### 3. Set secrets
+```powershell
+supabase secrets set STRAVA_CLIENT_ID=257907 STRAVA_CLIENT_SECRET=<secret>
+supabase secrets set STRAVA_WEBHOOK_VERIFY_TOKEN=<any-random-string>
+supabase secrets set CRON_SECRET=<another-random-string>
+```
+(`SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` / `SUPABASE_ANON_KEY` are injected
+automatically — don't set them.)
+
+### 4. Deploy the functions
+```powershell
 supabase functions deploy strava-auth
-supabase secrets set STRAVA_CLIENT_ID=xxxxx STRAVA_CLIENT_SECRET=xxxxx
+supabase functions deploy strava-webhook
+supabase functions deploy strava-sync
 ```
 
-`config.toml` already sets `verify_jwt = false`, so the function is publicly
-callable (no Supabase auth needed). If you prefer to require the anon key,
-set `verify_jwt = true` and put `supabaseAnonKey` in
-`lib/config/strava_config.dart`.
-
-Your function URL will be:
+### 5. Register the Strava webhook (one time)
+```powershell
+curl -X POST https://www.strava.com/api/v3/push_subscriptions `
+  -F client_id=257907 `
+  -F client_secret=<secret> `
+  -F callback_url=https://<project-ref>.functions.supabase.co/strava-webhook `
+  -F verify_token=<STRAVA_WEBHOOK_VERIFY_TOKEN>
 ```
-https://YOUR_PROJECT_REF.functions.supabase.co/strava-auth
+Strava immediately GETs the callback to verify it (the function echoes the
+challenge). A `{ "id": ... }` response means it's subscribed.
+
+### 6. Schedule the nightly catch-up
+In the SQL Editor (fill in your ref + CRON_SECRET):
+```sql
+create extension if not exists pg_cron;
+create extension if not exists pg_net;
+
+select cron.schedule('soma-nightly-strava-sync', '0 2 * * *', $$
+  select net.http_post(
+    url := 'https://<project-ref>.functions.supabase.co/strava-sync',
+    headers := jsonb_build_object(
+      'Content-Type','application/json',
+      'x-cron-secret','<CRON_SECRET>'
+    )
+  );
+$$);
 ```
 
-## 3. Point the app at it
+## Viewing / exporting the dataset
 
-In `lib/config/strava_config.dart` set:
-- `clientId`  → your Strava Client ID
-- `redirectUri` → the exact URL your app is served from (must live under the
-  callback domain above)
-- `backendUrl` → the function URL from step 2
+- **Browse:** Dashboard → **Table Editor → runs** (filter, sort).
+- **Export CSV:** Table Editor → `runs` → **Export**.
+- **Query/analyse:** **SQL Editor**, e.g.:
+  ```sql
+  select estimated_phase, count(*), avg(avg_pace_s_per_km)
+  from runs group by estimated_phase;
+  ```
+- **Python/ML:** connect with the connection string in
+  Dashboard → Settings → Database (use a read-only role for analysis).
 
-## API (JSON body)
-
-| action | body | returns |
-|--------|------|---------|
-| `exchange` | `{ action, code }` | `{ access_token, refresh_token, expires_at, athlete }` |
-| `refresh` | `{ action, refresh_token }` | `{ access_token, refresh_token, expires_at }` |
-| `activities` | `{ action, access_token, per_page?, after? }` | `{ activities: [...] }` |
-
-## Hardening for production (later)
-
-This scaffold returns tokens to the client and stores them in
-`SharedPreferences`. For a research deployment handling health data, consider:
-
-- Storing tokens **server-side** (a Supabase table keyed to a pseudonymous user
-  id) and returning only a session handle to the client, so access tokens never
-  live on the device.
-- Adding the **DPIA** + explicit research consent before any data leaves the
-  user's account.
-- Rate-limiting and logging access to the function.
+## Security notes / hardening
+- RLS is on every table; participants can only touch their own rows.
+- Strava tokens never reach the device.
+- For extra protection of tokens at rest, consider Supabase **Vault**/pgsodium
+  column encryption.
+- Before real participants: ethics/IRB approval, a DPIA, and the consent wording
+  wired into the in-app consent gate.

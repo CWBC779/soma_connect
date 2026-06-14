@@ -1,11 +1,16 @@
-# Minimal Supabase config so the CLI recognises this folder as a project and
-# can deploy the strava-auth Edge Function.
-#
+# Supabase project config for the SOMA Connect research backend.
 # Run Supabase commands from the `backend` folder (where this `supabase/`
 # directory lives), e.g.:  cd backend ; supabase functions deploy strava-auth
 project_id = "soma_connect"
 
+# Authenticated: the app sends the logged-in participant's Supabase JWT.
 [functions.strava-auth]
-# Public function (no Supabase auth needed to call it). Equivalent to the
-# deprecated --no-verify-jwt flag.
+verify_jwt = true
+
+# Public: Strava calls this. Protected by the hub.verify_token handshake.
+[functions.strava-webhook]
+verify_jwt = false
+
+# Public endpoint protected by the x-cron-secret header; called by pg_cron.
+[functions.strava-sync]
 verify_jwt = false
