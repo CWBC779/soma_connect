@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
-import '../config/strava_config.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/strava_service.dart';
 import '../services/run_repository.dart';
 import '../themes/app_theme.dart';
 
-/// Connect / refresh / disconnect Strava, with live run count + error feedback.
-/// Completes the OAuth handshake when the app loads back from Strava.
+/// Dashboard card showing Strava sync status, a manual refresh, and sign-out.
+/// (Since connecting Strava is the sign-in, a logged-in participant is already
+/// connected — the OAuth return is handled in AppEntry.)
 class StravaConnectCard extends StatefulWidget {
   const StravaConnectCard({super.key});
 
@@ -16,41 +17,19 @@ class StravaConnectCard extends StatefulWidget {
 class _StravaConnectCardState extends State<StravaConnectCard> {
   bool _busy = false;
 
-  @override
-  void initState() {
-    super.initState();
-    _init();
-  }
-
-  Future<void> _init() async {
-    final justConnected =
-        await StravaService.instance.completeAuthorizationFromUrl();
-    if (justConnected) {
-      await RunRepository.instance.syncFromStrava();
-    }
-    if (mounted) setState(() {});
-  }
-
-  Future<void> _connect() async {
-    if (!StravaConfig.isConfigured) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text('Strava is not configured yet.'),
-      ));
-      return;
-    }
-    await StravaService.instance.beginAuthorization();
-  }
-
   Future<void> _refresh() async {
     setState(() => _busy = true);
     await RunRepository.instance.syncFromStrava();
     if (mounted) setState(() => _busy = false);
   }
 
-  Future<void> _disconnect() async {
+  Future<void> _signOut() async {
     await StravaService.instance.disconnect();
-    await RunRepository.instance.refresh();
-    if (mounted) setState(() {});
+    await Supabase.instance.client.auth.signOut();
+  }
+
+  Future<void> _connect() async {
+    await StravaService.instance.beginAuthorization();
   }
 
   @override
@@ -81,7 +60,7 @@ class _StravaConnectCardState extends State<StravaConnectCard> {
                           Text(
                             connected
                                 ? 'Strava connected'
-                                : 'Connect Strava',
+                                : 'Strava not connected',
                             style:
                                 Theme.of(context).textTheme.headlineMedium,
                           ),
@@ -89,14 +68,14 @@ class _StravaConnectCardState extends State<StravaConnectCard> {
                           Text(
                             connected
                                 ? '${repo.runs.length} runs synced'
-                                : 'Import your runs to see real insights.',
+                                : 'Reconnect to resume syncing your runs.',
                             style: Theme.of(context).textTheme.bodySmall,
                           ),
                         ],
                       ),
                     ),
                     const SizedBox(width: 8),
-                    if (connected) ...[
+                    if (connected)
                       spinning
                           ? const SizedBox(
                               width: 20,
@@ -108,11 +87,8 @@ class _StravaConnectCardState extends State<StravaConnectCard> {
                               icon: const Icon(Icons.refresh),
                               tooltip: 'Refresh runs',
                               color: FemoraTheme.rose,
-                            ),
-                      TextButton(
-                          onPressed: _disconnect,
-                          child: const Text('Disconnect')),
-                    ] else
+                            )
+                    else
                       FilledButton(
                           onPressed: _connect,
                           child: const Text('Connect')),
@@ -142,6 +118,14 @@ class _StravaConnectCardState extends State<StravaConnectCard> {
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
                 ],
+                const SizedBox(height: 4),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton(
+                    onPressed: _signOut,
+                    child: const Text('Sign out'),
+                  ),
+                ),
               ],
             ),
           ),

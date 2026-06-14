@@ -3,6 +3,11 @@
 # directory lives), e.g.:  cd backend ; supabase functions deploy strava-auth
 project_id = "soma_connect"
 
+# Public "Sign in with Strava": no prior session, mints one. Protected by the
+# Strava OAuth code + STRAVA_LOGIN_SECRET.
+[functions.strava-login]
+verify_jwt = false
+
 # Authenticated: the app sends the logged-in participant's Supabase JWT.
 [functions.strava-auth]
 verify_jwt = true

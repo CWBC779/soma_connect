@@ -23,3 +23,13 @@ export function userClient(authHeader: string) {
     },
   );
 }
+
+/// Plain anon client — used server-side to sign a participant in with their
+/// derived password and obtain a session to hand back to the app.
+export function anonClient() {
+  return createClient(
+    Deno.env.get("SUPABASE_URL")!,
+    Deno.env.get("SUPABASE_ANON_KEY")!,
+    { auth: { persistSession: false } },
+  );
+}
