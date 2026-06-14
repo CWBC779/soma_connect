@@ -8,7 +8,7 @@ class StravaConfig {
   StravaConfig._();
 
   /// Your app's "Client ID" from https://www.strava.com/settings/api
-  static const String clientId = 'YOUR_STRAVA_CLIENT_ID';
+  static const String clientId = '257907';
 
   /// Where Strava sends the user back after they authorise.
   ///
