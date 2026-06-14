@@ -1,38 +1,37 @@
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../data/sample_data.dart';
 import '../models/models.dart';
 import 'cycle_estimator.dart';
 import 'strava_service.dart';
 
-/// Single source of truth for the run list the screens render.
+/// Single source of truth for the athlete's runs + cycle + weekly goal.
 ///
-/// - Until the athlete connects Strava + sets a cycle date, it serves the demo
-///   [SampleData.runs] so the UI looks complete.
-/// - Once connected with a cycle anchor, it serves real runs fetched from
-///   Strava, each tagged with its estimated cycle phase.
-///
-/// Screens listen to this (it's a [ChangeNotifier]) and rebuild when data
-/// changes — e.g. after a sync completes.
+/// There is NO demo data: if Strava isn't connected (or there are no runs),
+/// `runs` is empty and screens show an explicit empty state. Only real,
+/// fetched data is ever shown.
 class RunRepository extends ChangeNotifier {
   RunRepository._();
   static final RunRepository instance = RunRepository._();
 
   static const _kLastPeriod = 'cycle_last_period';
   static const _kCycleLength = 'cycle_length';
+  static const _kWeeklyGoal = 'weekly_goal_km';
 
-  List<RunEntry> _runs = SampleData.runs;
-  bool _isReal = false;
+  List<RunEntry> _runs = const [];
   bool _loading = false;
+  bool _connected = false;
   DateTime? _lastPeriodStart;
   int _cycleLength = 28;
+  double _weeklyGoalKm = 30;
 
   List<RunEntry> get runs => _runs;
-  bool get isReal => _isReal;
+  bool get hasData => _runs.isNotEmpty;
   bool get loading => _loading;
+  bool get connected => _connected;
   DateTime? get lastPeriodStart => _lastPeriodStart;
   int get cycleLength => _cycleLength;
   bool get hasCycle => _lastPeriodStart != null;
+  double get weeklyGoalKm => _weeklyGoalKm;
 
   CycleEstimator? get estimator => _lastPeriodStart == null
       ? null
@@ -42,18 +41,16 @@ class RunRepository extends ChangeNotifier {
   int? get cycleDayToday => estimator?.cycleDayFor(DateTime.now());
   CyclePhase? get phaseToday => estimator?.phaseFor(DateTime.now());
 
-  /// Load saved cycle info, then sync from Strava if possible. Safe to call at
-  /// app start; does nothing expensive when not connected.
   Future<void> init() async {
     final p = await SharedPreferences.getInstance();
     final iso = p.getString(_kLastPeriod);
     _lastPeriodStart = iso == null ? null : DateTime.tryParse(iso);
     _cycleLength = p.getInt(_kCycleLength) ?? 28;
+    _weeklyGoalKm = p.getDouble(_kWeeklyGoal) ?? 30;
     notifyListeners();
     await refresh();
   }
 
-  /// Persist the athlete's cycle anchor and re-sync.
   Future<void> setCycle(DateTime start, int length) async {
     final p = await SharedPreferences.getInstance();
     _lastPeriodStart = DateTime(start.year, start.month, start.day);
@@ -64,34 +61,27 @@ class RunRepository extends ChangeNotifier {
     await refresh();
   }
 
-  /// Re-evaluate the data source: real runs if connected + cycle set, else demo.
-  Future<void> refresh() async {
-    if (await StravaService.instance.isConnected()) {
-      await _syncFromStrava();
-    } else {
-      _resetToSample();
-    }
+  Future<void> setWeeklyGoal(double km) async {
+    final p = await SharedPreferences.getInstance();
+    _weeklyGoalKm = km;
+    await p.setDouble(_kWeeklyGoal, km);
+    notifyListeners();
   }
 
-  Future<void> _syncFromStrava() async {
-    final est = estimator;
-    if (est == null) return; // need a cycle anchor to tag phases
-    _loading = true;
-    notifyListeners();
-    final fetched = await StravaService.instance.fetchRuns(est, perPage: 60);
-    if (fetched.isNotEmpty) {
+  /// Pull real runs if connected + a cycle anchor is set; otherwise clear.
+  Future<void> refresh() async {
+    _connected = await StravaService.instance.isConnected();
+    if (_connected && estimator != null) {
+      _loading = true;
+      notifyListeners();
+      final fetched =
+          await StravaService.instance.fetchRuns(estimator!, perPage: 100);
       fetched.sort((a, b) => b.date.compareTo(a.date));
       _runs = fetched;
-      _isReal = true;
-    }
-    _loading = false;
-    notifyListeners();
-  }
-
-  void _resetToSample() {
-    if (_isReal) {
-      _runs = SampleData.runs;
-      _isReal = false;
+      _loading = false;
+      notifyListeners();
+    } else {
+      if (_runs.isNotEmpty) _runs = const [];
       notifyListeners();
     }
   }

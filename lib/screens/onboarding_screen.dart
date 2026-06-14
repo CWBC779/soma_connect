@@ -1,9 +1,7 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../themes/app_theme.dart';
-import 'setup_loading_screen.dart';
+import 'setup_done_screen.dart';
 
 class OnboardingScreen extends StatefulWidget {
   final VoidCallback onCompleted;
@@ -85,15 +83,19 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     if (_dietSelected.contains('Other')) dietList.remove('Other');
     if (_dietOther.isNotEmpty) dietList.add(_dietOther);
     await prefs.setStringList('profile_diet', dietList);
+    await prefs.setBool('hasCompletedOnboarding', true);
 
-    // show loading / processing screen, then complete
     if (!mounted) return;
     Navigator.of(context).push(MaterialPageRoute(
-      builder: (_) => SetupLoadingScreen(onDone: () async {
-        final prefs2 = await SharedPreferences.getInstance();
-        await prefs2.setBool('hasCompletedOnboarding', true);
-        widget.onCompleted();
-      }),
+      builder: (_) => SetupDoneScreen(
+        onContinue: () {
+          // Pop the pushed setup route first so the app shell (swapped in by
+          // AppEntry) isn't left hidden underneath it — that was the bug that
+          // made "Go to dashboard" appear stuck until a reload.
+          Navigator.of(context).popUntil((route) => route.isFirst);
+          widget.onCompleted();
+        },
+      ),
     ));
   }
 
