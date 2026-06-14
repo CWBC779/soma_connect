@@ -18,18 +18,21 @@ never sees the secret — it only calls this function to exchange the OAuth
 
 ## 2. Deploy the function
 
-Install the Supabase CLI, then from the repo root:
+With the Supabase CLI installed, run these **from the `backend` folder** (this
+`supabase/` directory must be in the current directory):
 
-```bash
+```powershell
+cd backend
 supabase login
 supabase link --project-ref YOUR_PROJECT_REF
-supabase functions deploy strava-auth --no-verify-jwt
+supabase functions deploy strava-auth
 supabase secrets set STRAVA_CLIENT_ID=xxxxx STRAVA_CLIENT_SECRET=xxxxx
 ```
 
-`--no-verify-jwt` makes the function publicly callable (no Supabase auth needed).
-If you prefer to require the anon key, drop that flag and set
-`supabaseAnonKey` in `lib/config/strava_config.dart`.
+`config.toml` already sets `verify_jwt = false`, so the function is publicly
+callable (no Supabase auth needed). If you prefer to require the anon key,
+set `verify_jwt = true` and put `supabaseAnonKey` in
+`lib/config/strava_config.dart`.
 
 Your function URL will be:
 ```
