@@ -1,6 +1,7 @@
-﻿import 'dart:async';
+import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'config/supabase_config.dart';
 import 'services/run_repository.dart';
 import 'screens/dashboard_screen.dart';
 import 'screens/training_plan_screen.dart';
@@ -8,12 +9,20 @@ import 'screens/insights_screen.dart';
 import 'screens/monthly_review_screen.dart';
 import 'screens/science_screen.dart';
 import 'screens/splash_screen.dart';
-import 'screens/onboarding_screen.dart';
+import 'screens/login_screen.dart';
+import 'screens/consent_screen.dart';
 import 'themes/app_theme.dart';
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Supabase.initialize(
+    url: SupabaseConfig.url,
+    anonKey: SupabaseConfig.anonKey,
+  );
   runApp(const MyApp());
 }
+
+SupabaseClient get supabase => Supabase.instance.client;
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
@@ -28,6 +37,7 @@ class MyApp extends StatelessWidget {
   }
 }
 
+/// Routes between: splash → login → consent → app, driven by Supabase auth.
 class AppEntry extends StatefulWidget {
   const AppEntry({super.key});
 
@@ -36,45 +46,60 @@ class AppEntry extends StatefulWidget {
 }
 
 class _AppEntryState extends State<AppEntry> {
-  bool _isLoading = true;
-  bool _showOnboarding = false;
+  StreamSubscription<AuthState>? _sub;
+  bool _loading = true;
+  bool _signedIn = false;
+  bool _consented = false;
 
   @override
   void initState() {
     super.initState();
-    _initializeApp();
+    _evaluate();
+    _sub = supabase.auth.onAuthStateChange.listen((_) => _evaluate());
   }
 
-  Future<void> _initializeApp() async {
-    await Future.delayed(const Duration(milliseconds: 1500));
-    final prefs = await SharedPreferences.getInstance();
-    final hasCompletedOnboarding = prefs.getBool('hasCompletedOnboarding') ?? false;
-    // Load cycle info + sync Strava in the background (won't block the splash).
-    unawaited(RunRepository.instance.init());
-    setState(() {
-      _isLoading = false;
-      _showOnboarding = !hasCompletedOnboarding;
-    });
+  @override
+  void dispose() {
+    _sub?.cancel();
+    super.dispose();
   }
 
-  Future<void> _completeOnboarding() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('hasCompletedOnboarding', true);
+  Future<void> _evaluate() async {
+    final session = supabase.auth.currentSession;
+    if (session == null) {
+      if (!mounted) return;
+      setState(() {
+        _signedIn = false;
+        _consented = false;
+        _loading = false;
+      });
+      return;
+    }
+    bool consented = false;
+    try {
+      final row = await supabase
+          .from('profiles')
+          .select('consented_at')
+          .eq('user_id', session.user.id)
+          .maybeSingle();
+      consented = row != null && row['consented_at'] != null;
+    } catch (_) {}
+    if (consented) {
+      await RunRepository.instance.init();
+    }
+    if (!mounted) return;
     setState(() {
-      _showOnboarding = false;
+      _signedIn = true;
+      _consented = consented;
+      _loading = false;
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_isLoading) {
-      return const SplashScreen();
-    }
-
-    if (_showOnboarding) {
-      return OnboardingScreen(onCompleted: _completeOnboarding);
-    }
-
+    if (_loading) return const SplashScreen();
+    if (!_signedIn) return const LoginScreen();
+    if (!_consented) return ConsentScreen(onConsented: _evaluate);
     return const AppShell();
   }
 }
@@ -113,19 +138,13 @@ class _AppShellState extends State<AppShell> {
     Icons.science,
   ];
 
-  void _onItemTapped(int index) {
-    setState(() {
-      _selectedIndex = index;
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: SafeArea(child: _pages[_selectedIndex]),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _selectedIndex,
-        onDestinationSelected: _onItemTapped,
+        onDestinationSelected: (i) => setState(() => _selectedIndex = i),
         destinations: List.generate(
           _pages.length,
           (index) => NavigationDestination(

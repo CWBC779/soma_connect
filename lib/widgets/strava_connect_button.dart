@@ -26,7 +26,7 @@ class _StravaConnectCardState extends State<StravaConnectCard> {
     final justConnected =
         await StravaService.instance.completeAuthorizationFromUrl();
     if (justConnected) {
-      await RunRepository.instance.refresh();
+      await RunRepository.instance.syncFromStrava();
     }
     if (mounted) setState(() {});
   }
@@ -43,7 +43,7 @@ class _StravaConnectCardState extends State<StravaConnectCard> {
 
   Future<void> _refresh() async {
     setState(() => _busy = true);
-    await RunRepository.instance.refresh();
+    await RunRepository.instance.syncFromStrava();
     if (mounted) setState(() => _busy = false);
   }
 

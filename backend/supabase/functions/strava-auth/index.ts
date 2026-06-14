@@ -60,6 +60,14 @@ Deno.serve(async (req) => {
           .eq("user_id", user.id);
         return json({ ok: true });
       }
+      case "status": {
+        const { data } = await adminClient()
+          .from("strava_tokens")
+          .select("user_id")
+          .eq("user_id", user.id)
+          .maybeSingle();
+        return json({ connected: !!data });
+      }
       default:
         return json({ error: "Unknown action" }, 400);
     }
