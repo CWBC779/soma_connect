@@ -5,8 +5,10 @@ import '../themes/app_theme.dart';
 
 const consentVersion = 'v1';
 
-/// Multi-step start-up: intro → about you → consent + Connect with Strava.
-/// Connecting Strava IS the sign-in. Cycle is set later on the Cycle page.
+/// Full start-up sequence:
+/// SOMA → consent info → name → age/height/weight → dietary → consent (18+) →
+/// Connect with Strava. Connecting Strava is the sign-in; the loading + "all
+/// set" screen runs after the OAuth return (see AllSetScreen).
 class WelcomeScreen extends StatefulWidget {
   const WelcomeScreen({super.key});
 
@@ -18,18 +20,28 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
   final _pageController = PageController();
   final _nameController = TextEditingController();
   int _page = 0;
+
+  int _age = 25;
+  int _height = 165;
+  int _weight = 60;
+  final Set<String> _diet = {};
+  final _dietOtherController = TextEditingController();
   bool _consent = false;
   bool _busy = false;
-  String _ageRange = '25–34';
-  String _trainingLevel = 'Recreational';
 
-  static const _ageRanges = ['Under 18', '18–24', '25–34', '35–44', '45+'];
-  static const _levels = ['Beginner', 'Recreational', 'Competitive', 'Elite'];
+  static const _dietOptions = [
+    'None', 'Vegan', 'Vegetarian', 'Pescatarian', 'Gluten-free',
+    'Dairy-free', 'Diabetic-friendly', 'Allergy-free', 'Halal', 'Kosher',
+    'Keto', 'Low-FODMAP', 'Other',
+  ];
+
+  static const _lastPage = 5;
 
   @override
   void dispose() {
     _pageController.dispose();
     _nameController.dispose();
+    _dietOtherController.dispose();
     super.dispose();
   }
 
@@ -38,6 +50,14 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
   void _back() => _pageController.previousPage(
       duration: const Duration(milliseconds: 300), curve: Curves.easeOut);
 
+  String _ageRange(int age) {
+    if (age < 18) return 'Under 18';
+    if (age <= 24) return '18–24';
+    if (age <= 34) return '25–34';
+    if (age <= 44) return '35–44';
+    return '45+';
+  }
+
   Future<void> _connect() async {
     if (!_consent) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
@@ -45,7 +65,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
       ));
       return;
     }
-    if (_ageRange == 'Under 18') {
+    if (_age < 18) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
         content: Text('This study is for participants aged 18 or over.'),
       ));
@@ -53,10 +73,20 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
     }
     setState(() => _busy = true);
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('pending_consent', true);
-    await prefs.setString('pending_age_range', _ageRange);
-    await prefs.setString('pending_training_level', _trainingLevel);
     await prefs.setString('profile_name', _nameController.text.trim());
+    await prefs.setInt('profile_age', _age);
+    await prefs.setInt('profile_height', _height);
+    await prefs.setInt('profile_weight', _weight);
+    final diet = [..._diet];
+    if (diet.contains('Other')) {
+      diet.remove('Other');
+      final other = _dietOtherController.text.trim();
+      if (other.isNotEmpty) diet.add(other);
+    }
+    await prefs.setStringList('profile_diet', diet);
+    // Pseudonymised fields + consent for the backend.
+    await prefs.setBool('pending_consent', true);
+    await prefs.setString('pending_age_range', _ageRange(_age));
     await prefs.setBool('seen_setup_done', false);
     await StravaService.instance.beginAuthorization();
   }
@@ -73,8 +103,11 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                 controller: _pageController,
                 onPageChanged: (i) => setState(() => _page = i),
                 children: [
-                  _intro(context),
-                  _aboutYou(context),
+                  _soma(context),
+                  _consentInfo(context),
+                  _name(context),
+                  _numbers(context),
+                  _dietPage(context),
                   _consentPage(context),
                 ],
               ),
@@ -86,7 +119,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                   if (_page > 0)
                     TextButton(onPressed: _back, child: const Text('Back')),
                   const Spacer(),
-                  if (_page < 2)
+                  if (_page < _lastPage)
                     FilledButton(
                         onPressed: _next, child: const Text('Next')),
                 ],
@@ -98,16 +131,43 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
     );
   }
 
-  Widget _intro(BuildContext context) {
+  Widget _soma(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Text('SOMA',
+              style: FemoraTheme.serif(fontSize: 56, color: FemoraTheme.rose)),
+          const SizedBox(height: 8),
+          Text('Connect',
+              style: FemoraTheme.serif(
+                  fontSize: 28, color: FemoraTheme.warmText)),
+          const SizedBox(height: 20),
+          Text(
+            'Female performance intelligence — training insights tailored to your cycle.',
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.bodyLarge,
+          ),
+          const SizedBox(height: 24),
+          Text('Press Next to get started',
+              style: Theme.of(context).textTheme.bodySmall),
+        ],
+      ),
+    );
+  }
+
+  Widget _consentInfo(BuildContext context) {
     return ListView(
       padding: const EdgeInsets.all(24),
       children: [
         const SizedBox(height: 8),
-        Text('Welcome to SOMA Connect',
-            style: Theme.of(context).textTheme.displayMedium),
+        Text('About this study',
+            style: Theme.of(context).textTheme.displaySmall),
         const SizedBox(height: 12),
         Text(
-          'A research study on how menstrual-cycle phase relates to running performance. You join by connecting Strava — that\'s your secure sign-in, no password needed. We collect your runs (via Strava) and the cycle dates you enter, stored under a pseudonymous ID.\n\n'
+          'SOMA Connect is a research study on how menstrual-cycle phase relates to running performance. You join by connecting Strava — that\'s your secure sign-in, no password needed. We collect your runs (via Strava) and the cycle dates you enter, stored under a pseudonymous ID.\n\n'
           'Your data is used only for this research, kept confidential, and you can withdraw and request deletion at any time. Cycle phases are estimates from dates, not hormone measurements, and nothing here is medical advice.',
           style: Theme.of(context).textTheme.bodyLarge,
         ),
@@ -119,42 +179,138 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
               .bodySmall
               ?.copyWith(fontStyle: FontStyle.italic),
         ),
-        const SizedBox(height: 16),
-        Text('Press Next to continue',
-            style: Theme.of(context).textTheme.bodyMedium),
       ],
     );
   }
 
-  Widget _aboutYou(BuildContext context) {
-    return ListView(
+  Widget _name(BuildContext context) {
+    return Padding(
       padding: const EdgeInsets.all(24),
-      children: [
-        const SizedBox(height: 8),
-        Text('About you', style: Theme.of(context).textTheme.displaySmall),
-        const SizedBox(height: 6),
-        Text('This helps us personalise your dashboard.',
-            style: Theme.of(context).textTheme.bodySmall),
-        const SizedBox(height: 20),
-        TextField(
-          controller: _nameController,
-          decoration: InputDecoration(
-            labelText: 'Display name (optional)',
-            filled: true,
-            fillColor: FemoraTheme.warmGray,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide.none,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SizedBox(height: 16),
+          Text('How should we call you?',
+              style: Theme.of(context).textTheme.displaySmall),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _nameController,
+            decoration: InputDecoration(
+              labelText: 'Display name',
+              filled: true,
+              fillColor: FemoraTheme.warmGray,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide.none,
+              ),
             ),
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _numbers(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          const SizedBox(height: 8),
+          Text('Age', style: Theme.of(context).textTheme.headlineMedium),
+          _wheel(
+              value: _age,
+              min: 12,
+              max: 100,
+              onChanged: (v) => setState(() => _age = v)),
+          const SizedBox(height: 8),
+          Text('Height (cm)',
+              style: Theme.of(context).textTheme.headlineMedium),
+          _wheel(
+              value: _height,
+              min: 120,
+              max: 230,
+              onChanged: (v) => setState(() => _height = v)),
+          const SizedBox(height: 8),
+          Text('Weight (kg)',
+              style: Theme.of(context).textTheme.headlineMedium),
+          _wheel(
+              value: _weight,
+              min: 30,
+              max: 160,
+              onChanged: (v) => setState(() => _weight = v)),
+        ],
+      ),
+    );
+  }
+
+  Widget _wheel({
+    required int value,
+    required int min,
+    required int max,
+    required void Function(int) onChanged,
+  }) {
+    return SizedBox(
+      height: 120,
+      child: ListWheelScrollView.useDelegate(
+        physics: const FixedExtentScrollPhysics(),
+        itemExtent: 40,
+        diameterRatio: 1.4,
+        controller: FixedExtentScrollController(initialItem: value - min),
+        onSelectedItemChanged: (index) => onChanged(min + index),
+        childDelegate: ListWheelChildBuilderDelegate(
+          builder: (context, index) {
+            final v = min + index;
+            if (v > max) return null;
+            return Center(
+              child: Text('$v',
+                  style: Theme.of(context).textTheme.displaySmall),
+            );
+          },
         ),
-        const SizedBox(height: 16),
-        _dropdown('Age range', _ageRange, _ageRanges,
-            (v) => setState(() => _ageRange = v)),
-        const SizedBox(height: 12),
-        _dropdown('Training level', _trainingLevel, _levels,
-            (v) => setState(() => _trainingLevel = v)),
-      ],
+      ),
+    );
+  }
+
+  Widget _dietPage(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(8),
+            child: Text('Dietary requirements',
+                style: Theme.of(context).textTheme.displaySmall),
+          ),
+          Expanded(
+            child: ListView(
+              children: [
+                ..._dietOptions.map((o) => CheckboxListTile(
+                      value: _diet.contains(o),
+                      title: Text(o),
+                      onChanged: (v) => setState(() {
+                        if (v == true) {
+                          _diet.add(o);
+                        } else {
+                          _diet.remove(o);
+                        }
+                      }),
+                    )),
+                if (_diet.contains('Other'))
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: TextField(
+                      controller: _dietOtherController,
+                      decoration: const InputDecoration(
+                          labelText: 'Other details'),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -204,31 +360,6 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
           ),
         ),
       ],
-    );
-  }
-
-  Widget _dropdown(String label, String value, List<String> items,
-      ValueChanged<String> onChanged) {
-    return InputDecorator(
-      decoration: InputDecoration(
-        labelText: label,
-        filled: true,
-        fillColor: FemoraTheme.warmGray,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide.none,
-        ),
-      ),
-      child: DropdownButtonHideUnderline(
-        child: DropdownButton<String>(
-          value: value,
-          isExpanded: true,
-          items: items
-              .map((i) => DropdownMenuItem(value: i, child: Text(i)))
-              .toList(),
-          onChanged: (v) => onChanged(v ?? value),
-        ),
-      ),
     );
   }
 }

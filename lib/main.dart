@@ -13,7 +13,7 @@ import 'screens/science_screen.dart';
 import 'screens/splash_screen.dart';
 import 'screens/welcome_screen.dart';
 import 'screens/consent_screen.dart';
-import 'screens/setup_done_screen.dart';
+import 'screens/all_set_screen.dart';
 import 'themes/app_theme.dart';
 
 Future<void> main() async {
@@ -143,7 +143,7 @@ class _AppEntryState extends State<AppEntry> {
     if (_loading) return const SplashScreen();
     if (!_signedIn) return const WelcomeScreen();
     if (!_consented) return ConsentScreen(onConsented: _evaluate);
-    if (!_seenDone) return SetupDoneScreen(onContinue: _completeDone);
+    if (!_seenDone) return AllSetScreen(onContinue: _completeDone);
     return const AppShell();
   }
 }
