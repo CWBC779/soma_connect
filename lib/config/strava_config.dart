@@ -20,7 +20,7 @@ class StravaConfig {
   /// Your deployed Supabase Edge Function URL (token exchange + API proxy):
   /// https://<project-ref>.functions.supabase.co/strava-auth
   static const String backendUrl =
-      'https://YOUR_PROJECT_REF.functions.supabase.co/strava-auth';
+      'https://ichfwawdqtxxkmnvmmzy.functions.supabase.co/strava-auth';
 
   /// Supabase anon (public) key — used to invoke the Edge Function. This is a
   /// publishable key and is safe in the client. It is NOT the service-role key.
