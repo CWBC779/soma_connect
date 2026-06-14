@@ -138,7 +138,7 @@ class _StravaConnectCardState extends State<StravaConnectCard> {
                     !spinning) ...[
                   const SizedBox(height: 10),
                   Text(
-                    'No runs found yet. Add a run in Strava (＋ → Add Manual Entry, as a "Run" with a distance), then tap refresh.',
+                    'No runs synced yet. Once you record a run on Strava, tap refresh to see it here.',
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
                 ],
