@@ -170,7 +170,20 @@ class FemoraTheme {
         ),
         chipTheme: ChipThemeData(
           backgroundColor: warmGray,
-          labelStyle: sans(fontSize: 12, color: warmText),
+          selectedColor: rose,
+          checkmarkColor: Colors.white,
+          // Selected chips get a dark (navy) fill, so flip the label to white
+          // when selected; revert to muted text when not.
+          labelStyle: WidgetStateTextStyle.resolveWith((states) {
+            final selected = states.contains(WidgetState.selected);
+            return sans(
+              fontSize: 12,
+              color: selected ? Colors.white : warmText,
+              fontWeight: selected ? FontWeight.w500 : FontWeight.w400,
+            );
+          }),
+          secondaryLabelStyle: sans(
+              fontSize: 12, color: Colors.white, fontWeight: FontWeight.w500),
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(20),
