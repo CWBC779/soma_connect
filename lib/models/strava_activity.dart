@@ -35,11 +35,12 @@ class StravaActivity {
 
   bool get isRun => type.toLowerCase().contains('run');
 
-  /// Convert to the app's [RunEntry], tagging the estimated cycle phase.
-  RunEntry toRunEntry(CycleEstimator estimator) => RunEntry(
+  /// Convert to the app's [RunEntry]. [estimator] may be null — phase stays
+  /// null until the athlete sets a cycle date.
+  RunEntry toRunEntry(CycleEstimator? estimator) => RunEntry(
         date: startDate,
         distanceKm: distanceMeters / 1000.0,
         duration: Duration(seconds: movingTimeSeconds),
-        phase: estimator.phaseFor(startDate),
+        phase: estimator?.phaseFor(startDate),
       );
 }

@@ -88,8 +88,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 const SizedBox(height: 16),
 
                 // ── Connect / cycle setup ────────────────────────────
-                StravaConnectCard(
-                    onChanged: () => RunRepository.instance.refresh()),
+                const StravaConnectCard(),
                 if (!repo.hasCycle) ...[
                   const SizedBox(height: 12),
                   const CycleSetupCard(),

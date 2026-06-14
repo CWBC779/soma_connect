@@ -18,6 +18,12 @@ class StravaService {
   StravaService._();
   static final StravaService instance = StravaService._();
 
+  /// Human-readable status of the last activities fetch, for the UI to show.
+  String? lastError;
+
+  /// Number of activities Strava returned in the last fetch (before filtering).
+  int lastFetchedCount = 0;
+
   static const _kAccess = 'strava_access_token';
   static const _kRefresh = 'strava_refresh_token';
   static const _kExpiry = 'strava_expires_at'; // epoch seconds
@@ -77,22 +83,39 @@ class StravaService {
 
   /// Fetch recent runs and map them to [RunEntry], tagging each with the
   /// estimated cycle phase from [estimator].
-  Future<List<RunEntry>> fetchRuns(CycleEstimator estimator,
+  /// Fetch recent runs. [estimator] may be null — phases are only tagged once a
+  /// cycle date is set; runs still load (distance/pace) without it.
+  Future<List<RunEntry>> fetchRuns(CycleEstimator? estimator,
       {int perPage = 30}) async {
+    lastError = null;
+    lastFetchedCount = 0;
     final token = await _validAccessToken();
-    if (token == null) return const [];
+    if (token == null) {
+      lastError = 'Not connected to Strava (no token).';
+      return const [];
+    }
     final res = await _callBackend({
       'action': 'activities',
       'access_token': token,
       'per_page': perPage,
     });
-    if (res == null) return const [];
+    if (res == null) return const []; // lastError set by _callBackend
+    if (res['error'] != null) {
+      lastError = 'Strava: ${res['error']}';
+      return const [];
+    }
     final list = (res['activities'] as List?) ?? const [];
-    return list
+    lastFetchedCount = list.length;
+    final runs = list
         .map((e) => StravaActivity.fromJson(e as Map<String, dynamic>))
         .where((a) => a.isRun && a.distanceMeters > 0)
         .map((a) => a.toRunEntry(estimator))
         .toList();
+    if (list.isNotEmpty && runs.isEmpty) {
+      lastError =
+          'Found ${list.length} Strava activities but none were runs with a distance. Log the entry as a "Run" with a distance.';
+    }
+    return runs;
   }
 
   Future<void> disconnect() async {
@@ -120,9 +143,11 @@ class StravaService {
       if (res.statusCode >= 200 && res.statusCode < 300) {
         return jsonDecode(res.body) as Map<String, dynamic>;
       }
+      lastError = 'Backend error ${res.statusCode}.';
       debugPrint('Strava backend error ${res.statusCode}: ${res.body}');
       return null;
     } catch (e) {
+      lastError = 'Network error reaching the backend.';
       debugPrint('Strava backend call failed: $e');
       return null;
     }

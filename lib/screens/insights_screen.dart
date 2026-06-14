@@ -34,6 +34,22 @@ class InsightsScreen extends StatelessWidget {
                 if (runs.isEmpty)
                   const _EmptyState()
                 else ...[
+                  if (!repo.hasCycle) ...[
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: FemoraTheme.warmGray,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Text(
+                        'Set your last period date on the Home tab to unlock your pace-by-phase patterns below.',
+                        style:
+                            TextStyle(fontSize: 13, color: FemoraTheme.ink),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                  ],
                   _PhaseCard(stats: Analytics.phaseCorrelation(runs)),
                   const SizedBox(height: 12),
                   _ScatterCard(repo: repo, runs: runs),

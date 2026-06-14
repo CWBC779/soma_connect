@@ -39,7 +39,8 @@ class Analytics {
       List<RunEntry> runs) {
     final grouped = {for (final p in CyclePhase.values) p: <RunEntry>[]};
     for (final r in runs) {
-      grouped[r.phase]!.add(r);
+      final p = r.phase;
+      if (p != null) grouped[p]!.add(r);
     }
     final out = <CyclePhase, Map<String, dynamic>>{};
     grouped.forEach((phase, list) {

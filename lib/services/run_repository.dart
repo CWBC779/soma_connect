@@ -41,6 +41,9 @@ class RunRepository extends ChangeNotifier {
   int? get cycleDayToday => estimator?.cycleDayFor(DateTime.now());
   CyclePhase? get phaseToday => estimator?.phaseFor(DateTime.now());
 
+  /// Status of the last Strava fetch (null if fine), for surfacing in the UI.
+  String? get lastError => StravaService.instance.lastError;
+
   Future<void> init() async {
     final p = await SharedPreferences.getInstance();
     final iso = p.getString(_kLastPeriod);
@@ -68,14 +71,15 @@ class RunRepository extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Pull real runs if connected + a cycle anchor is set; otherwise clear.
+  /// Pull real runs whenever connected. Phases are tagged only if a cycle date
+  /// is set, but runs (distance/pace) load regardless.
   Future<void> refresh() async {
     _connected = await StravaService.instance.isConnected();
-    if (_connected && estimator != null) {
+    if (_connected) {
       _loading = true;
       notifyListeners();
       final fetched =
-          await StravaService.instance.fetchRuns(estimator!, perPage: 100);
+          await StravaService.instance.fetchRuns(estimator, perPage: 100);
       fetched.sort((a, b) => b.date.compareTo(a.date));
       _runs = fetched;
       _loading = false;

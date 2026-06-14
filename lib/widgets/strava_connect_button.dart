@@ -1,26 +1,20 @@
 import 'package:flutter/material.dart';
 import '../config/strava_config.dart';
 import '../services/strava_service.dart';
+import '../services/run_repository.dart';
 import '../themes/app_theme.dart';
 
-/// Self-contained card to connect / disconnect Strava. Drop it into any screen
-/// (e.g. the dashboard list) — it manages its own state and completes the OAuth
-/// handshake when the app loads back from Strava with a `?code=...`.
+/// Connect / refresh / disconnect Strava, with live run count + error feedback.
+/// Completes the OAuth handshake when the app loads back from Strava.
 class StravaConnectCard extends StatefulWidget {
-  /// Called after a successful connect/disconnect so the host screen can reload
-  /// its data (e.g. re-fetch runs). Optional.
-  final VoidCallback? onChanged;
-
-  const StravaConnectCard({super.key, this.onChanged});
+  const StravaConnectCard({super.key});
 
   @override
   State<StravaConnectCard> createState() => _StravaConnectCardState();
 }
 
 class _StravaConnectCardState extends State<StravaConnectCard> {
-  bool _loading = true;
-  bool _connected = false;
-  String? _athlete;
+  bool _busy = false;
 
   @override
   void initState() {
@@ -29,76 +23,130 @@ class _StravaConnectCardState extends State<StravaConnectCard> {
   }
 
   Future<void> _init() async {
-    // If we returned from Strava with ?code=..., finish the handshake.
     final justConnected =
         await StravaService.instance.completeAuthorizationFromUrl();
-    final connected = await StravaService.instance.isConnected();
-    final name = await StravaService.instance.connectedAthleteName();
-    if (!mounted) return;
-    setState(() {
-      _connected = connected;
-      _athlete = name;
-      _loading = false;
-    });
-    if (justConnected) widget.onChanged?.call();
+    if (justConnected) {
+      await RunRepository.instance.refresh();
+    }
+    if (mounted) setState(() {});
   }
 
   Future<void> _connect() async {
     if (!StravaConfig.isConfigured) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text(
-            'Strava not configured yet — add your Client ID and backend URL in lib/config/strava_config.dart'),
+        content: Text('Strava is not configured yet.'),
       ));
       return;
     }
     await StravaService.instance.beginAuthorization();
   }
 
+  Future<void> _refresh() async {
+    setState(() => _busy = true);
+    await RunRepository.instance.refresh();
+    if (mounted) setState(() => _busy = false);
+  }
+
   Future<void> _disconnect() async {
     await StravaService.instance.disconnect();
-    if (!mounted) return;
-    setState(() {
-      _connected = false;
-      _athlete = null;
-    });
-    widget.onChanged?.call();
+    await RunRepository.instance.refresh();
+    if (mounted) setState(() {});
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_loading) return const SizedBox.shrink();
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          children: [
-            const Icon(Icons.directions_run, color: FemoraTheme.sage),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    _connected ? 'Strava connected' : 'Connect Strava',
-                    style: Theme.of(context).textTheme.headlineMedium,
+    return ListenableBuilder(
+      listenable: RunRepository.instance,
+      builder: (context, _) {
+        final repo = RunRepository.instance;
+        final connected = repo.connected;
+        final error = repo.lastError;
+        final spinning = _busy || repo.loading;
+
+        return Card(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.directions_run,
+                        color: FemoraTheme.sage),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            connected
+                                ? 'Strava connected'
+                                : 'Connect Strava',
+                            style:
+                                Theme.of(context).textTheme.headlineMedium,
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            connected
+                                ? '${repo.runs.length} runs synced'
+                                : 'Import your runs to see real insights.',
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    if (connected) ...[
+                      spinning
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                  strokeWidth: 2))
+                          : IconButton(
+                              onPressed: _refresh,
+                              icon: const Icon(Icons.refresh),
+                              tooltip: 'Refresh runs',
+                              color: FemoraTheme.rose,
+                            ),
+                      TextButton(
+                          onPressed: _disconnect,
+                          child: const Text('Disconnect')),
+                    ] else
+                      FilledButton(
+                          onPressed: _connect,
+                          child: const Text('Connect')),
+                  ],
+                ),
+                if (connected && error != null) ...[
+                  const SizedBox(height: 10),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: FemoraTheme.warmGray,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Text(error,
+                        style: const TextStyle(
+                            fontSize: 12, color: FemoraTheme.ink)),
                   ),
-                  const SizedBox(height: 2),
+                ],
+                if (connected &&
+                    error == null &&
+                    repo.runs.isEmpty &&
+                    !spinning) ...[
+                  const SizedBox(height: 10),
                   Text(
-                    _connected
-                        ? 'Syncing ${_athlete ?? 'your'} runs for real insights.'
-                        : 'Import your runs to replace the demo data.',
+                    'No runs found yet. Add a run in Strava (＋ → Add Manual Entry, as a "Run" with a distance), then tap refresh.',
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
                 ],
-              ),
+              ],
             ),
-            const SizedBox(width: 8),
-            _connected
-                ? TextButton(onPressed: _disconnect, child: const Text('Disconnect'))
-                : FilledButton(onPressed: _connect, child: const Text('Connect')),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 }

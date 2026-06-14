@@ -91,7 +91,9 @@ class RunEntry {
   final DateTime date;
   final double distanceKm;
   final Duration duration;
-  final CyclePhase phase;
+
+  /// Estimated cycle phase for this run, or null until a cycle date is set.
+  final CyclePhase? phase;
   final double? hrv;
   final double? restingHr;
 
@@ -99,7 +101,7 @@ class RunEntry {
     required this.date,
     required this.distanceKm,
     required this.duration,
-    required this.phase,
+    this.phase,
     this.hrv,
     this.restingHr,
   });
