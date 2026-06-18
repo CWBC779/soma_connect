@@ -1,14 +1,15 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/models.dart';
 import '../themes/app_theme.dart';
 import '../widgets/shared_widgets.dart';
-import '../widgets/strava_connect_button.dart';
 import '../widgets/cycle_setup_card.dart';
 import '../services/analytics.dart';
 import '../services/run_repository.dart';
 import 'cycle_screen.dart';
+import 'upload_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -38,6 +39,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
     if (hour < 12) return 'Good morning';
     if (hour < 18) return 'Good afternoon';
     return 'Good evening';
+  }
+
+  String _fmtDate(DateTime d) {
+    final l = d.toLocal();
+    return '${l.day.toString().padLeft(2, '0')}/${l.month.toString().padLeft(2, '0')}/${l.year}';
   }
 
   @override
@@ -88,11 +94,78 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
                 const SizedBox(height: 16),
 
-                // ── Connect / cycle setup ────────────────────────────
-                const StravaConnectCard(),
+                // ── Cycle setup (if needed) ──────────────────────────
                 if (!repo.hasCycle) ...[
-                  const SizedBox(height: 12),
                   const CycleSetupCard(),
+                  const SizedBox(height: 12),
+                ],
+
+                // ── Upload activity data + last-uploaded ─────────────
+                Card(
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(16),
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const UploadScreen()),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.upload_file,
+                              color: FemoraTheme.sage),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text('Upload activity data',
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .headlineMedium),
+                                const SizedBox(height: 2),
+                                Text(
+                                  repo.lastUploadAt != null
+                                      ? 'Last uploaded: ${_fmtDate(repo.lastUploadAt!)}'
+                                      : 'No data uploaded yet.',
+                                  style:
+                                      Theme.of(context).textTheme.bodySmall,
+                                ),
+                              ],
+                            ),
+                          ),
+                          const Icon(Icons.chevron_right,
+                              size: 18, color: FemoraTheme.warmText),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                if (repo.uploadReminderDue) ...[
+                  const SizedBox(height: 10),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: FemoraTheme.amberLight,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.notifications_active_outlined,
+                            size: 18, color: FemoraTheme.amber),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            repo.lastUploadAt == null
+                                ? 'Upload your activity export to start contributing your data.'
+                                : "It's been over a month since your last upload — please upload your recent activities.",
+                            style: const TextStyle(
+                                fontSize: 13, color: FemoraTheme.ink),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ],
 
                 const SizedBox(height: 16),
@@ -270,6 +343,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
                 const DisclaimerBox(
                   'Research app — not medical advice. Cycle phases are estimated from entered cycle dates, not hormone measurements. For informational and research purposes only.',
+                ),
+
+                const SizedBox(height: 8),
+                Center(
+                  child: TextButton(
+                    onPressed: () =>
+                        Supabase.instance.client.auth.signOut(),
+                    child: const Text('Sign out'),
+                  ),
                 ),
 
                 const SizedBox(height: 20),

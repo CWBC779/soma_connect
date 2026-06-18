@@ -3,11 +3,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/models.dart';
 import 'cycle_estimator.dart';
-import 'strava_service.dart';
 
 /// Single source of truth for the screens. Runs are read from the Supabase
-/// `runs` table (kept fresh server-side by the Strava webhook + nightly sync).
-/// Cycle dates live in the `cycles` table; the weekly goal is a local pref.
+/// `runs` table (populated by the participant's CSV uploads). Cycle dates live
+/// in the `cycles` table; the weekly goal is a local pref.
 class RunRepository extends ChangeNotifier {
   RunRepository._();
   static final RunRepository instance = RunRepository._();
@@ -16,23 +15,28 @@ class RunRepository extends ChangeNotifier {
 
   List<RunEntry> _runs = const [];
   bool _loading = false;
-  bool _connected = false;
   DateTime? _lastPeriodStart;
   int _cycleLength = 28;
   double _weeklyGoalKm = 30;
   List<DateTime> _periodStarts = const [];
+  DateTime? _lastUploadAt;
 
   SupabaseClient get _sb => Supabase.instance.client;
 
   List<RunEntry> get runs => _runs;
   bool get hasData => _runs.isNotEmpty;
   bool get loading => _loading;
-  bool get connected => _connected;
   DateTime? get lastPeriodStart => _lastPeriodStart;
   int get cycleLength => _cycleLength;
   bool get hasCycle => _lastPeriodStart != null;
   double get weeklyGoalKm => _weeklyGoalKm;
   List<DateTime> get periodStarts => _periodStarts;
+  DateTime? get lastUploadAt => _lastUploadAt;
+
+  /// True if the participant has never uploaded, or it's been ≥ 30 days.
+  bool get uploadReminderDue =>
+      _lastUploadAt == null ||
+      DateTime.now().difference(_lastUploadAt!).inDays >= 30;
 
   /// Total km run per calendar day (local date), for the activity heatmap.
   Map<DateTime, double> dailyKm() {
@@ -43,7 +47,6 @@ class RunRepository extends ChangeNotifier {
     }
     return out;
   }
-  String? get lastError => StravaService.instance.lastError;
 
   CycleEstimator? get estimator => _lastPeriodStart == null
       ? null
@@ -90,23 +93,10 @@ class RunRepository extends ChangeNotifier {
     }
   }
 
-  /// Reload from the database and refresh connection status (no Strava pull).
+  /// Reload runs + last-upload date from the database.
   Future<void> refresh() async {
-    _connected = await StravaService.instance.isConnected();
     await _loadRunsFromDb();
-    notifyListeners();
-  }
-
-  /// Pull the latest from Strava into the database, then reload.
-  Future<void> syncFromStrava() async {
-    _connected = await StravaService.instance.isConnected();
-    if (_connected) {
-      _loading = true;
-      notifyListeners();
-      await StravaService.instance.syncNow();
-      _loading = false;
-    }
-    await _loadRunsFromDb();
+    await _loadLastUpload();
     notifyListeners();
   }
 
@@ -122,13 +112,33 @@ class RunRepository extends ChangeNotifier {
           .select()
           .eq('user_id', uid)
           .order('start_date', ascending: false)
-          .limit(500);
-      _runs = (rows as List)
-          .map(_fromRow)
-          .whereType<RunEntry>()
-          .toList();
+          .limit(1000);
+      _runs = (rows as List).map(_fromRow).whereType<RunEntry>().toList();
     } catch (e) {
       debugPrint('load runs failed: $e');
+    }
+  }
+
+  Future<void> _loadLastUpload() async {
+    try {
+      final uid = _sb.auth.currentUser?.id;
+      if (uid == null) {
+        _lastUploadAt = null;
+        return;
+      }
+      final row = await _sb
+          .from('runs')
+          .select('synced_at')
+          .eq('user_id', uid)
+          .eq('source', 'upload')
+          .order('synced_at', ascending: false)
+          .limit(1)
+          .maybeSingle();
+      _lastUploadAt = row != null
+          ? DateTime.tryParse(row['synced_at'].toString())?.toLocal()
+          : null;
+    } catch (e) {
+      debugPrint('load last upload failed: $e');
     }
   }
 
@@ -181,8 +191,7 @@ class RunRepository extends ChangeNotifier {
         debugPrint('save cycle failed: $e');
       }
     }
-    // Re-tag existing runs server-side with the new cycle, then reload.
-    await syncFromStrava();
+    await refresh();
   }
 
   /// Log a new period start (current avg cycle length).
@@ -214,7 +223,7 @@ class RunRepository extends ChangeNotifier {
         debugPrint('set cycle length failed: $e');
       }
     }
-    await syncFromStrava();
+    notifyListeners();
   }
 
   Future<void> setWeeklyGoal(double km) async {

@@ -44,6 +44,7 @@ dependencies:
   # lib is loaded in index.html -> blank screen. We don't use passkeys; 2.14.0
   # is the last version without it.
   supabase_flutter: 2.14.0
+  csv: 6.0.0
 
 dependency_overrides:
   # Keep transitive web plugins pinned so a package update can't blank the app

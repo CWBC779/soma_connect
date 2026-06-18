@@ -90,8 +90,8 @@ class _AppEntryState extends State<AppEntry> {
           if (cl != null) consent['cycle_length'] = cl;
           await StravaService.instance.loginWithStrava(code, consent);
         } else {
-          await StravaService.instance.exchangeCode(code);
-          await RunRepository.instance.syncFromStrava();
+          // Already signed in; just reload (Strava is login-only now).
+          await RunRepository.instance.refresh();
         }
       } finally {
         _handlingCode = false;
