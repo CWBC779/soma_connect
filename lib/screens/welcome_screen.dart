@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../services/strava_service.dart';
+import '../services/auth_service.dart';
 import '../themes/app_theme.dart';
 
 const consentVersion = 'v1';
@@ -26,6 +26,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
   int _weight = 60;
   final Set<String> _diet = {};
   final _dietOtherController = TextEditingController();
+  final _codeController = TextEditingController();
   bool _consent = false;
   bool _busy = false;
 
@@ -42,6 +43,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
     _pageController.dispose();
     _nameController.dispose();
     _dietOtherController.dispose();
+    _codeController.dispose();
     super.dispose();
   }
 
@@ -58,7 +60,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
     return '45+';
   }
 
-  Future<void> _connect() async {
+  Future<void> _join() async {
     if (!_consent) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
         content: Text('Please tick the consent box to join.'),
@@ -68,6 +70,13 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
     if (_age < 18) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
         content: Text('This study is for participants aged 18 or over.'),
+      ));
+      return;
+    }
+    final code = _codeController.text.trim();
+    if (code.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Please enter your study code.'),
       ));
       return;
     }
@@ -84,11 +93,20 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
       if (other.isNotEmpty) diet.add(other);
     }
     await prefs.setStringList('profile_diet', diet);
-    // Pseudonymised fields + consent for the backend.
-    await prefs.setBool('pending_consent', true);
-    await prefs.setString('pending_age_range', _ageRange(_age));
     await prefs.setBool('seen_setup_done', false);
-    await StravaService.instance.beginAuthorization();
+
+    final consent = <String, dynamic>{
+      'consent_version': consentVersion,
+      'age_range': _ageRange(_age),
+    };
+    final ok = await AuthService.instance.loginWithCode(code, consent);
+    if (!ok && mounted) {
+      setState(() => _busy = false);
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(AuthService.instance.lastError ?? 'Could not sign in.'),
+      ));
+    }
+    // On success, AppEntry detects the new session and routes onward.
   }
 
   @override
@@ -345,18 +363,39 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
           ],
         ),
         const SizedBox(height: 20),
+        Text('Your study code',
+            style: Theme.of(context).textTheme.headlineMedium),
+        const SizedBox(height: 6),
+        Text('Enter the code the research team gave you.',
+            style: Theme.of(context).textTheme.bodySmall),
+        const SizedBox(height: 8),
+        TextField(
+          controller: _codeController,
+          textCapitalization: TextCapitalization.characters,
+          decoration: InputDecoration(
+            labelText: 'Study code',
+            hintText: 'e.g. SOMA-AB12CD',
+            filled: true,
+            fillColor: FemoraTheme.warmGray,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide.none,
+            ),
+          ),
+          onSubmitted: (_) => _join(),
+        ),
+        const SizedBox(height: 16),
         SizedBox(
           width: double.infinity,
-          child: FilledButton.icon(
-            onPressed: _busy ? null : _connect,
-            icon: _busy
+          child: FilledButton(
+            onPressed: _busy ? null : _join,
+            child: _busy
                 ? const SizedBox(
                     height: 18,
                     width: 18,
                     child: CircularProgressIndicator(
                         strokeWidth: 2, color: Colors.white))
-                : const Icon(Icons.directions_run),
-            label: const Text('Agree & connect with Strava'),
+                : const Text('Agree & join study'),
           ),
         ),
       ],

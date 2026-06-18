@@ -4,7 +4,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'config/supabase_config.dart';
 import 'services/run_repository.dart';
-import 'services/strava_service.dart';
 import 'screens/dashboard_screen.dart';
 import 'screens/training_plan_screen.dart';
 import 'screens/insights_screen.dart';
@@ -55,7 +54,6 @@ class _AppEntryState extends State<AppEntry> {
   bool _signedIn = false;
   bool _consented = false;
   bool _seenDone = false;
-  bool _handlingCode = false;
 
   @override
   void initState() {
@@ -71,33 +69,6 @@ class _AppEntryState extends State<AppEntry> {
   }
 
   Future<void> _evaluate() async {
-    // Handle the Strava OAuth return (?code). Single-use — guard re-entry.
-    final code = Uri.base.queryParameters['code'];
-    if (code != null && code.isNotEmpty && !_handlingCode) {
-      _handlingCode = true;
-      try {
-        if (supabase.auth.currentSession == null) {
-          final prefs = await SharedPreferences.getInstance();
-          final consent = <String, dynamic>{};
-          if (prefs.getBool('pending_consent') == true) {
-            consent['consent_version'] = 'v1';
-          }
-          final age = prefs.getString('pending_age_range');
-          if (age != null) consent['age_range'] = age;
-          final lvl = prefs.getString('pending_training_level');
-          if (lvl != null) consent['training_level'] = lvl;
-          final cl = prefs.getInt('pending_cycle_length');
-          if (cl != null) consent['cycle_length'] = cl;
-          await StravaService.instance.loginWithStrava(code, consent);
-        } else {
-          // Already signed in; just reload (Strava is login-only now).
-          await RunRepository.instance.refresh();
-        }
-      } finally {
-        _handlingCode = false;
-      }
-    }
-
     final session = supabase.auth.currentSession;
     if (session == null) {
       if (!mounted) return;

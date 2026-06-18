@@ -3,8 +3,12 @@
 # directory lives), e.g.:  cd backend ; supabase functions deploy strava-auth
 project_id = "soma_connect"
 
-# Public "Sign in with Strava": no prior session, mints one. Protected by the
-# Strava OAuth code + STRAVA_LOGIN_SECRET.
+# Public "Sign in with a study code": validates the code, mints a session.
+[functions.code-login]
+verify_jwt = false
+
+# (Legacy, unused) Strava login/data functions — kept deployed but no longer
+# called by the app, which now uses study-code login + CSV upload.
 [functions.strava-login]
 verify_jwt = false
 
