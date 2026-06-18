@@ -1,4 +1,5 @@
-import 'package:file_picker/file_picker.dart';
+import 'dart:html' as html;
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import '../services/activity_import.dart';
 import '../themes/app_theme.dart';
@@ -20,19 +21,32 @@ class _UploadScreenState extends State<UploadScreen> {
   String? _result;
 
   Future<void> _pick() async {
-    final res = await FilePicker.platform.pickFiles(
-      type: FileType.custom,
-      allowedExtensions: const ['csv'],
-      withData: true,
-    );
-    if (res == null || res.files.isEmpty) return;
-    final file = res.files.first;
-    final bytes = file.bytes;
+    // Plugin-free web file chooser (the browser's native <input type=file>).
+    final input = html.FileUploadInputElement()..accept = '.csv,text/csv';
+    input.click();
+    await input.onChange.first;
+    final files = input.files;
+    if (files == null || files.isEmpty) return;
+    final file = files.first;
+    final reader = html.FileReader();
+    reader.readAsArrayBuffer(file);
+    await reader.onLoadEnd.first;
+    final result = reader.result;
+    Uint8List? bytes;
+    if (result is ByteBuffer) {
+      bytes = result.asUint8List();
+    } else if (result is Uint8List) {
+      bytes = result;
+    } else if (result is List<int>) {
+      bytes = Uint8List.fromList(result);
+    }
     if (bytes == null) return;
+    final b = bytes;
+    if (!mounted) return;
     setState(() {
       _fileName = file.name;
       _result = null;
-      _preview = ActivityImporter.parseCsv(bytes);
+      _preview = ActivityImporter.parseCsv(b);
     });
   }
 
