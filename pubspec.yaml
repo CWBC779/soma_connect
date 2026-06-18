@@ -39,12 +39,15 @@ dependencies:
   shared_preferences: ^2.2.0
   http: ^1.2.0
   url_launcher: ^6.3.0
-  supabase_flutter: ^2.5.0
+  # Pinned exactly: supabase_flutter 2.15.0 added experimental passkey support
+  # (the `passkeys` package), whose web plugin crashes at startup unless a JS
+  # lib is loaded in index.html -> blank screen. We don't use passkeys; 2.14.0
+  # is the last version without it.
+  supabase_flutter: 2.14.0
 
 dependency_overrides:
-  # app_links 7.1.2 (2026-06-11) regressed web startup -> blank screen
-  # ("reading 'init' of undefined"). Pin to the last good version. This (and the
-  # Flutter pin) keeps the build reproducible so a package update can't break it.
+  # Keep transitive web plugins pinned so a package update can't blank the app
+  # again (the build's lock file doesn't cover these).
   app_links: 7.1.1
 
 dev_dependencies:
