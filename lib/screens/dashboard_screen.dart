@@ -9,6 +9,7 @@ import '../widgets/cycle_setup_card.dart';
 import '../services/analytics.dart';
 import '../services/run_repository.dart';
 import 'cycle_screen.dart';
+import 'upload_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -94,6 +95,45 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   const SizedBox(height: 12),
                   const CycleSetupCard(),
                 ],
+
+                const SizedBox(height: 12),
+                Card(
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(16),
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const UploadScreen()),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.upload_file,
+                              color: FemoraTheme.sage),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text('Upload activity data',
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .headlineMedium),
+                                const SizedBox(height: 2),
+                                Text(
+                                    'Import a CSV export from Garmin, Strava, etc.',
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .bodySmall),
+                              ],
+                            ),
+                          ),
+                          const Icon(Icons.chevron_right,
+                              size: 18, color: FemoraTheme.warmText),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
 
                 const SizedBox(height: 16),
 

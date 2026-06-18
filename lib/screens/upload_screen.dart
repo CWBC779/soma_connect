@@ -1,0 +1,150 @@
+import 'package:file_picker/file_picker.dart';
+import 'package:flutter/material.dart';
+import '../services/activity_import.dart';
+import '../themes/app_theme.dart';
+import '../widgets/shared_widgets.dart';
+
+/// Lets a participant upload an activities CSV exported from their watch app
+/// (Garmin Connect, Strava bulk export, etc.). Parsed runs go into the backend.
+class UploadScreen extends StatefulWidget {
+  const UploadScreen({super.key});
+
+  @override
+  State<UploadScreen> createState() => _UploadScreenState();
+}
+
+class _UploadScreenState extends State<UploadScreen> {
+  ImportPreview? _preview;
+  String? _fileName;
+  bool _busy = false;
+  String? _result;
+
+  Future<void> _pick() async {
+    final res = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: const ['csv'],
+      withData: true,
+    );
+    if (res == null || res.files.isEmpty) return;
+    final file = res.files.first;
+    final bytes = file.bytes;
+    if (bytes == null) return;
+    setState(() {
+      _fileName = file.name;
+      _result = null;
+      _preview = ActivityImporter.parseCsv(bytes);
+    });
+  }
+
+  Future<void> _import() async {
+    final preview = _preview;
+    if (preview == null || preview.rows.isEmpty) return;
+    setState(() => _busy = true);
+    try {
+      final n = await ActivityImporter.import(preview.rows);
+      if (!mounted) return;
+      setState(() {
+        _result = 'Imported $n runs. They\'ll appear on your dashboard.';
+        _preview = null;
+        _fileName = null;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _result = 'Import failed: $e');
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final p = _preview;
+    return Scaffold(
+      appBar: AppBar(title: const Text('Upload activity data')),
+      body: ListView(
+        padding: const EdgeInsets.all(20),
+        children: [
+          const SectionLabel('how to export your runs'),
+          const SizedBox(height: 8),
+          Text(
+            'Garmin Connect (web): Activities → ⚙/Export → Export CSV.\n'
+            'Strava (web): Settings → My Account → "Download or Delete Your Account" → Download Request — the zip contains activities.csv.\n\n'
+            'Then choose that CSV file below. We read the running activities (date, distance, time, average heart rate).',
+            style: Theme.of(context).textTheme.bodyMedium,
+          ),
+          const SizedBox(height: 20),
+          OutlinedButton.icon(
+            onPressed: _pick,
+            icon: const Icon(Icons.upload_file),
+            label: Text(_fileName == null ? 'Choose CSV file' : 'Choose a different file'),
+          ),
+          if (_fileName != null) ...[
+            const SizedBox(height: 8),
+            Text(_fileName!, style: Theme.of(context).textTheme.bodySmall),
+          ],
+          const SizedBox(height: 16),
+
+          if (p != null) ...[
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (p.error != null)
+                      Text(p.error!,
+                          style: const TextStyle(
+                              fontSize: 13, color: FemoraTheme.rose))
+                    else ...[
+                      Text('Found ${p.runs} runs',
+                          style: Theme.of(context).textTheme.headlineMedium),
+                      const SizedBox(height: 4),
+                      Text(
+                        '${p.totalRows} rows read · ${p.skipped} skipped (couldn\'t read date/distance/time).',
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            if (p.error == null && p.runs > 0)
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton(
+                  onPressed: _busy ? null : _import,
+                  child: _busy
+                      ? const SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(
+                              strokeWidth: 2, color: Colors.white))
+                      : Text('Import ${p.runs} runs'),
+                ),
+              ),
+          ],
+
+          if (_result != null) ...[
+            const SizedBox(height: 16),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: FemoraTheme.sageLight,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(_result!,
+                  style: Theme.of(context).textTheme.bodyMedium),
+            ),
+          ],
+
+          const SizedBox(height: 16),
+          const DisclaimerBox(
+            'Distances are read as kilometres. If your export uses miles or a different date format and the count looks off, let us know and we\'ll adjust the parser.',
+          ),
+        ],
+      ),
+    );
+  }
+}
