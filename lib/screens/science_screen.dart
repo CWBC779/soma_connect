@@ -1,49 +1,92 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../data/sample_data.dart';
+import '../models/models.dart';
 import '../themes/app_theme.dart';
 
-class ScienceScreen extends StatelessWidget {
+/// Female athlete science feed. Reads facts from the Supabase `science_facts`
+/// table (the team edits them in the Table Editor). Falls back to the built-in
+/// list if the table is empty or unreachable, so it never shows blank.
+class ScienceScreen extends StatefulWidget {
   const ScienceScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    final facts = SampleData.scienceFacts;
+  State<ScienceScreen> createState() => _ScienceScreenState();
+}
 
+class _ScienceScreenState extends State<ScienceScreen> {
+  List<ScienceFact> _facts = SampleData.scienceFacts;
+
+  static const _tints = [
+    Color(0xFFF4F7FB),
+    Color(0xFFF1F6FB),
+    Color(0xFFF5F4FB),
+    Color(0xFFF2F7FA),
+    Color(0xFFF6F8FC),
+    Color(0xFFEFF4FC),
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final rows = await Supabase.instance.client
+          .from('science_facts')
+          .select()
+          .eq('published', true)
+          .order('sort_order', ascending: true);
+      final list = rows as List;
+      if (list.isEmpty) return; // keep fallback
+      final facts = <ScienceFact>[];
+      for (var i = 0; i < list.length; i++) {
+        final r = list[i];
+        facts.add(ScienceFact(
+          emoji: (r['emoji'] ?? '') as String,
+          tag: (r['tag'] ?? '') as String,
+          body: (r['body'] ?? '') as String,
+          cardColor: _tints[i % _tints.length],
+        ));
+      }
+      if (mounted) setState(() => _facts = facts);
+    } catch (e) {
+      debugPrint('load science facts failed: $e'); // keep fallback
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final facts = _facts;
     return Scaffold(
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(20),
           children: [
-            // ── Header ───────────────────────────────────────────────
             Text('Female athlete science',
                 style: Theme.of(context).textTheme.displayMedium),
             const SizedBox(height: 4),
             const Text('Evidence-based insights for female runners',
-                style:
-                    TextStyle(fontSize: 14, color: FemoraTheme.warmText)),
-
+                style: TextStyle(fontSize: 14, color: FemoraTheme.warmText)),
             const SizedBox(height: 20),
-
-            // ── Fact Cards ────────────────────────────────────────────
             ...facts.map(
               (fact) => Padding(
                 padding: const EdgeInsets.only(bottom: 12),
                 child: _FactCard(fact: fact),
               ),
             ),
-
             const SizedBox(height: 8),
-
-            // ── Research Note ─────────────────────────────────────────
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
                 color: FemoraTheme.lavenderLight,
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: Column(
+              child: const Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
-                children: const [
+                children: [
                   Text(
                     '🔬  About this research',
                     style: TextStyle(
@@ -62,7 +105,6 @@ class ScienceScreen extends StatelessWidget {
                 ],
               ),
             ),
-
             const SizedBox(height: 20),
           ],
         ),
@@ -73,7 +115,7 @@ class ScienceScreen extends StatelessWidget {
 
 // ── Fact Card ──────────────────────────────────────────────────────────────
 class _FactCard extends StatefulWidget {
-  final dynamic fact; // ScienceFact
+  final ScienceFact fact;
 
   const _FactCard({required this.fact});
 
@@ -81,33 +123,10 @@ class _FactCard extends StatefulWidget {
   State<_FactCard> createState() => _FactCardState();
 }
 
-class _FactCardState extends State<_FactCard>
-    with SingleTickerProviderStateMixin {
+class _FactCardState extends State<_FactCard> {
   bool _expanded = false;
-  late AnimationController _controller;
-  late Animation<double> _animation;
 
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 200),
-    );
-    _animation = CurvedAnimation(
-        parent: _controller, curve: Curves.easeInOut);
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  void _toggle() {
-    setState(() => _expanded = !_expanded);
-    _expanded ? _controller.forward() : _controller.reverse();
-  }
+  void _toggle() => setState(() => _expanded = !_expanded);
 
   @override
   Widget build(BuildContext context) {
