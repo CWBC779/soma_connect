@@ -91,7 +91,7 @@ class _AllSetScreenState extends State<AllSetScreen> {
             style: Theme.of(context).textTheme.displayMedium),
         const SizedBox(height: 8),
         Text(
-          "We've personalised your dashboard from what you told us. Your runs will sync automatically from Strava.",
+          "We've personalised your dashboard from what you told us. Upload your activity data any time from the Home tab to see your runs.",
           textAlign: TextAlign.center,
           style: Theme.of(context).textTheme.bodyLarge,
         ),

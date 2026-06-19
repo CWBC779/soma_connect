@@ -185,17 +185,9 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
             style: Theme.of(context).textTheme.displaySmall),
         const SizedBox(height: 12),
         Text(
-          'SOMA Connect is a research study on how menstrual-cycle phase relates to running performance. You join by connecting Strava — that\'s your secure sign-in, no password needed. We collect your runs (via Strava) and the cycle dates you enter, stored under a pseudonymous ID.\n\n'
+          'SOMA Connect is a research study on how menstrual-cycle phase relates to running performance. You join with a study code from our team, then contribute your running data by uploading the activity export from your sports app (such as Garmin Connect) and by entering your period dates in the app. Everything is stored under a pseudonymous ID.\n\n'
           'Your data is used only for this research, kept confidential, and you can withdraw and request deletion at any time. Cycle phases are estimates from dates, not hormone measurements, and nothing here is medical advice.',
           style: Theme.of(context).textTheme.bodyLarge,
-        ),
-        const SizedBox(height: 14),
-        Text(
-          '[Placeholder consent text — replace with your IRB/DPIA-approved wording before launch.]',
-          style: Theme.of(context)
-              .textTheme
-              .bodySmall
-              ?.copyWith(fontStyle: FontStyle.italic),
         ),
       ],
     );

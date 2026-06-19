@@ -82,17 +82,9 @@ class _ConsentScreenState extends State<ConsentScreen> {
                 style: Theme.of(context).textTheme.displayMedium),
             const SizedBox(height: 12),
             Text(
-              'SOMA Connect is a research study exploring how menstrual-cycle phase relates to running performance. With your consent we securely collect your running activity (via Strava) and the cycle dates you enter, stored under a pseudonymous ID.\n\n'
+              'SOMA Connect is a research study exploring how menstrual-cycle phase relates to running performance. With your consent we securely collect the running data you upload (from your sports app, such as Garmin Connect) and the cycle dates you enter, stored under a pseudonymous ID.\n\n'
               'Your data is used only for this research, kept confidential, and you may withdraw and request deletion at any time. Cycle phases are estimates from dates, not hormone measurements, and nothing here is medical advice.',
               style: Theme.of(context).textTheme.bodyMedium,
-            ),
-            const SizedBox(height: 16),
-            Text(
-              '[Placeholder consent text — replace with your IRB/DPIA-approved wording before launch.]',
-              style: Theme.of(context)
-                  .textTheme
-                  .bodySmall
-                  ?.copyWith(fontStyle: FontStyle.italic),
             ),
             const SizedBox(height: 20),
 

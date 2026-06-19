@@ -86,7 +86,7 @@ class _EmptyState extends StatelessWidget {
                 style: Theme.of(context).textTheme.headlineMedium),
             const SizedBox(height: 6),
             Text(
-              'Connect Strava and set your cycle date on the Home tab. Once your runs sync, your pace-by-phase patterns appear here.',
+              'Upload your activities and set your cycle date on the Home tab. Once your runs are in, your pace-by-phase patterns appear here.',
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.bodySmall,
             ),

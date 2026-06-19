@@ -80,7 +80,7 @@ class _EmptyReview extends StatelessWidget {
                 style: Theme.of(context).textTheme.headlineMedium),
             const SizedBox(height: 6),
             Text(
-              'Once you connect Strava and log some runs, your monthly recap — distance, pace and your strongest phase — shows up here, ready to share.',
+              'Once you upload some runs, your monthly recap — distance, pace and your strongest phase — shows up here, ready to share.',
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.bodySmall,
             ),
