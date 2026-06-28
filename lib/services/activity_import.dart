@@ -172,7 +172,8 @@ class ActivityImporter {
     if (lower.endsWith('.csv')) return parseCsv(bytes);
     if (lower.endsWith('.gpx')) return _parseGpx(bytes);
     if (lower.endsWith('.tcx')) return _parseTcx(bytes);
-    // Unknown / not-yet-supported (e.g. .fit) — report, don't crash.
+    if (lower.endsWith('.fit')) return _parseFit(bytes);
+    // Unknown extension — report, don't crash.
     return ImportPreview(
         rows: const [], totalRows: 0, runs: 0, skipped: 0, unsupported: [name]);
   }
@@ -411,6 +412,193 @@ class ActivityImporter {
     }
   }
 
+  // ── FIT (binary; one or more sessions per file) ───────────────────────────
+  //
+  // A compact reader for just the `session` summary message (global num 18),
+  // which holds the device's own totals. Verified byte-for-byte against a real
+  // Garmin .fit export. We avoid bitwise shifts (Dart-on-web truncates them to
+  // 32-bit signed, corrupting uint32 reads) and use `* 256` accumulation.
+  //
+  // FIT timestamps are seconds since 1989-12-31 UTC; add this to reach Unix.
+  static const int _fitEpoch = 631065600;
+
+  static int _readUint(List<int> b, int off, int size, bool big) {
+    int v = 0;
+    if (big) {
+      for (var i = 0; i < size; i++) {
+        v = v * 256 + (b[off + i] & 0xff);
+      }
+    } else {
+      for (var i = size - 1; i >= 0; i--) {
+        v = v * 256 + (b[off + i] & 0xff);
+      }
+    }
+    return v;
+  }
+
+  static ImportPreview _parseFit(List<int> b) {
+    try {
+      if (b.length < 14) {
+        return const ImportPreview(
+            rows: [], totalRows: 0, runs: 0, skipped: 0, error: 'Not a FIT file.');
+      }
+      final headerSize = b[0];
+      final dataSize = _readUint(b, 4, 4, false);
+      var end = headerSize + dataSize;
+      if (end > b.length) end = b.length; // tolerate a missing/short CRC
+
+      final uid = _uid();
+      final est = RunRepository.instance.estimator;
+      final nowIso = DateTime.now().toUtc().toIso8601String();
+      final lowerBound = DateTime.utc(2015);
+      final upperBound = DateTime.now().toUtc().add(const Duration(days: 2));
+
+      final defs = <int, _FitDef>{};
+      final rows = <Map<String, dynamic>>[];
+      int sessions = 0, skipped = 0;
+      var pos = headerSize;
+
+      while (pos < end) {
+        final h = b[pos];
+        pos++;
+        if ((h & 0x80) != 0) {
+          // compressed-timestamp data message
+          final local = (h >> 5) & 0x03;
+          final def = defs[local];
+          if (def == null) break;
+          final start = pos;
+          pos += def.totalSize;
+          if (def.global == 18) {
+            sessions++;
+            if (!_addFitSession(b, start, def, uid, est, nowIso, lowerBound,
+                upperBound, rows)) {
+              skipped++;
+            }
+          }
+          continue;
+        }
+        if ((h & 0x40) != 0) {
+          // definition message
+          final local = h & 0x0f;
+          pos++; // reserved
+          final big = b[pos] == 1;
+          pos++;
+          final global = _readUint(b, pos, 2, big);
+          pos += 2;
+          final numFields = b[pos];
+          pos++;
+          final fields = <_FitField>[];
+          var total = 0;
+          for (var f = 0; f < numFields; f++) {
+            final fnum = b[pos];
+            final fsize = b[pos + 1];
+            pos += 3; // num, size, base type
+            fields.add(_FitField(fnum, fsize, total));
+            total += fsize;
+          }
+          if ((h & 0x20) != 0) {
+            // developer fields: count + 3 bytes each; sizes count toward record
+            final numDev = b[pos];
+            pos++;
+            for (var d = 0; d < numDev; d++) {
+              total += b[pos + 1];
+              pos += 3;
+            }
+          }
+          defs[local] = _FitDef(global, big, fields, total);
+          continue;
+        }
+        // normal data message
+        final local = h & 0x0f;
+        final def = defs[local];
+        if (def == null) break;
+        final start = pos;
+        pos += def.totalSize;
+        if (def.global == 18) {
+          sessions++;
+          if (!_addFitSession(b, start, def, uid, est, nowIso, lowerBound,
+              upperBound, rows)) {
+            skipped++;
+          }
+        }
+      }
+
+      if (rows.isEmpty && sessions == 0) {
+        return const ImportPreview(
+            rows: [],
+            totalRows: 0,
+            runs: 0,
+            skipped: 0,
+            error: 'No session summary found in this FIT file.');
+      }
+      return ImportPreview(
+          rows: rows, totalRows: sessions, runs: rows.length, skipped: skipped);
+    } catch (e) {
+      return ImportPreview(
+          rows: const [], totalRows: 0, runs: 0, skipped: 0, error: '$e');
+    }
+  }
+
+  /// Reads the fields we need from one session record. Returns true if it was a
+  /// valid running session and a row was added.
+  static bool _addFitSession(
+    List<int> b,
+    int start,
+    _FitDef def,
+    String? uid,
+    CycleEstimator? est,
+    String nowIso,
+    DateTime lowerBound,
+    DateTime upperBound,
+    List<Map<String, dynamic>> rows,
+  ) {
+    int? field(int num) {
+      for (final f in def.fields) {
+        if (f.num == num) return _readUint(b, start + f.offset, f.size, def.big);
+      }
+      return null;
+    }
+
+    final sport = field(5); // 1 = running
+    if (sport != null && sport != 1) return false; // skip non-runs
+
+    final rawStart = field(2);
+    if (rawStart == null || rawStart == 4294967295) return false;
+    final date = DateTime.fromMillisecondsSinceEpoch(
+        (rawStart + _fitEpoch) * 1000,
+        isUtc: true);
+    if (date.isBefore(lowerBound) || date.isAfter(upperBound)) {
+      return false; // implausible date → reject rather than corrupt the dataset
+    }
+
+    final distRaw = field(9); // cm? no — 1/100 m
+    if (distRaw == null || distRaw == 4294967295 || distRaw == 0) return false;
+    final distKm = distRaw / 100.0 / 1000.0;
+
+    // Prefer moving (timer) time; fall back to elapsed.
+    final timer = field(8);
+    final elapsed = field(7);
+    final msRaw = (timer != null && timer != 4294967295)
+        ? timer
+        : (elapsed != null && elapsed != 4294967295 ? elapsed : null);
+    if (msRaw == null || msRaw == 0) return false;
+    final secs = (msRaw / 1000.0).round();
+
+    final hrRaw = field(16);
+    final hr = (hrRaw == null || hrRaw == 255) ? null : hrRaw.toDouble();
+
+    rows.add(_row(
+      uid: uid,
+      est: est,
+      nowIso: nowIso,
+      date: date,
+      distKm: distKm,
+      secs: secs,
+      hr: hr,
+    ));
+    return true;
+  }
+
   // ── store ─────────────────────────────────────────────────────────────────
 
   /// Upsert parsed rows (skips duplicates from re-uploads). Returns count sent.
@@ -424,4 +612,23 @@ class ActivityImporter {
     await RunRepository.instance.refresh();
     return rows.length;
   }
+}
+
+/// One field within a FIT message definition (field number, byte size, and its
+/// offset within the data record).
+class _FitField {
+  final int num;
+  final int size;
+  final int offset;
+  const _FitField(this.num, this.size, this.offset);
+}
+
+/// A FIT local-message definition: which global message it is, its byte order,
+/// its ordered fields, and the total byte size of a data record using it.
+class _FitDef {
+  final int global;
+  final bool big;
+  final List<_FitField> fields;
+  final int totalSize;
+  const _FitDef(this.global, this.big, this.fields, this.totalSize);
 }

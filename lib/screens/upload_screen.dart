@@ -36,7 +36,7 @@ class _UploadScreenState extends State<UploadScreen> {
 
   Future<void> _pick() async {
     final input = html.FileUploadInputElement()
-      ..accept = '.csv,.gpx,.tcx'
+      ..accept = '.csv,.gpx,.tcx,.fit'
       ..multiple = true;
     input.click();
     await input.onChange.first;
@@ -126,7 +126,7 @@ class _UploadScreenState extends State<UploadScreen> {
 
               Text(
                 'We accept a CSV summary (many runs in one file) or individual '
-                'GPX / TCX files. You can select several files at once.',
+                'GPX, TCX or FIT files. You can select several files at once.',
                 style: Theme.of(context).textTheme.bodyMedium,
               ),
               const SizedBox(height: 16),
@@ -143,13 +143,13 @@ class _UploadScreenState extends State<UploadScreen> {
                 style: Theme.of(context).textTheme.bodyMedium,
               ),
               const SizedBox(height: 16),
-              const SectionLabel('suunto, polar, coros… (gpx files)'),
+              const SectionLabel('suunto, polar, coros… (fit or gpx files)'),
               const SizedBox(height: 8),
               Text(
                 'Suunto app: open a workout → tap ⋯ (top-right) → Export → '
-                'choose GPX. Repeat for each run, then select all the GPX files '
-                'here together. (For treadmill runs with no GPS, see the FIT note '
-                'below.)',
+                'choose FIT (most accurate, and works for treadmill runs too) or '
+                'GPX. Repeat for each run, then select all the files here '
+                'together.',
                 style: Theme.of(context).textTheme.bodyMedium,
               ),
               const SizedBox(height: 16),
@@ -167,7 +167,7 @@ class _UploadScreenState extends State<UploadScreen> {
                 onPressed: _pick,
                 icon: const Icon(Icons.upload_file),
                 label: Text(_fileName == null
-                    ? 'Choose files (CSV, GPX or TCX)'
+                    ? 'Choose files (CSV, GPX, TCX or FIT)'
                     : 'Choose different files'),
               ),
               if (_fileName != null) ...[
@@ -201,7 +201,7 @@ class _UploadScreenState extends State<UploadScreen> {
                           if (p.unsupported.isNotEmpty) ...[
                             const SizedBox(height: 6),
                             Text(
-                              '${p.unsupported.length} file${p.unsupported.length == 1 ? '' : 's'} couldn\'t be read (FIT isn\'t supported yet — export GPX instead): ${p.unsupported.join(', ')}',
+                              '${p.unsupported.length} file${p.unsupported.length == 1 ? '' : 's'} skipped (unsupported format — use CSV, GPX, TCX or FIT): ${p.unsupported.join(', ')}',
                               style: const TextStyle(
                                   fontSize: 12, color: FemoraTheme.rose),
                             ),
