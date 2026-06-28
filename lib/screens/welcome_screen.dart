@@ -5,10 +5,13 @@ import '../themes/app_theme.dart';
 
 const consentVersion = 'v1';
 
-/// Full start-up sequence:
-/// SOMA → consent info → name → age/height/weight → dietary → consent (18+) →
-/// Connect with Strava. Connecting Strava is the sign-in; the loading + "all
-/// set" screen runs after the OAuth return (see AllSetScreen).
+/// Full start-up sequence for a new participant:
+/// SOMA → consent info → name → age/height/weight → dietary → consent (18+) +
+/// study code. Entering the study code is the sign-in.
+///
+/// Returning participants who already registered skip all of this via
+/// "Already registered? Log in" on the first page — they just re-enter their
+/// code and land straight on the dashboard (see [_returningLogin]).
 class WelcomeScreen extends StatefulWidget {
   const WelcomeScreen({super.key});
 
@@ -109,6 +112,89 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
     // On success, AppEntry detects the new session and routes onward.
   }
 
+  /// Returning participant: re-enter the study code only. We send no consent
+  /// fields, so the existing profile (consent, demographics) is left untouched;
+  /// the code maps to the same pseudonymous account, so all their data is there.
+  Future<void> _returningLogin() async {
+    final codeCtrl = TextEditingController();
+    final code = await showDialog<String>(
+      context: context,
+      builder: (ctx) {
+        bool busy = false;
+        String? error;
+        return StatefulBuilder(
+          builder: (ctx, setLocal) => AlertDialog(
+            title: const Text('Log in with your study code'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                    'Enter the same code you registered with to pick up where '
+                    'you left off.'),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: codeCtrl,
+                  autofocus: true,
+                  textCapitalization: TextCapitalization.characters,
+                  decoration: InputDecoration(
+                    labelText: 'Study code',
+                    hintText: 'e.g. SOMA-AB12CD',
+                    errorText: error,
+                  ),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: busy ? null : () => Navigator.pop(ctx),
+                child: const Text('Cancel'),
+              ),
+              FilledButton(
+                onPressed: busy
+                    ? null
+                    : () async {
+                        final c = codeCtrl.text.trim();
+                        if (c.isEmpty) {
+                          setLocal(() => error = 'Please enter your code.');
+                          return;
+                        }
+                        setLocal(() {
+                          busy = true;
+                          error = null;
+                        });
+                        final ok = await AuthService.instance
+                            .loginWithCode(c, const {});
+                        if (!ok) {
+                          setLocal(() {
+                            busy = false;
+                            error = AuthService.instance.lastError ??
+                                'Invalid study code.';
+                          });
+                          return;
+                        }
+                        // Returning users skip the "all set" setup screen.
+                        final prefs = await SharedPreferences.getInstance();
+                        await prefs.setBool('seen_setup_done', true);
+                        if (ctx.mounted) Navigator.pop(ctx, c);
+                      },
+                child: busy
+                    ? const SizedBox(
+                        height: 18,
+                        width: 18,
+                        child: CircularProgressIndicator(
+                            strokeWidth: 2, color: Colors.white))
+                    : const Text('Log in'),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+    codeCtrl.dispose();
+    // On success AppEntry sees the new session and routes to the dashboard.
+    if (code != null) setState(() => _busy = true);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -171,6 +257,13 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
           const SizedBox(height: 24),
           Text('Press Next to get started',
               style: Theme.of(context).textTheme.bodySmall),
+          const SizedBox(height: 24),
+          const Divider(),
+          const SizedBox(height: 4),
+          TextButton(
+            onPressed: _busy ? null : _returningLogin,
+            child: const Text('Already registered? Log in with your code'),
+          ),
         ],
       ),
     );
