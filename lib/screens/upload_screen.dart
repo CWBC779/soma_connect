@@ -83,6 +83,28 @@ class _UploadScreenState extends State<UploadScreen> {
     return '${l.day.toString().padLeft(2, '0')}/${l.month.toString().padLeft(2, '0')}/${l.year}';
   }
 
+  /// A collapsible per-app export guide: app name, the best format, and steps.
+  Widget _appGuide(String app, String best, String steps) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 8),
+      child: ExpansionTile(
+        tilePadding: const EdgeInsets.symmetric(horizontal: 16),
+        childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        title: Text(app, style: Theme.of(context).textTheme.titleMedium),
+        subtitle: Text(best,
+            style:
+                const TextStyle(fontSize: 12, color: FemoraTheme.warmText)),
+        children: [
+          Align(
+            alignment: Alignment.centerLeft,
+            child:
+                Text(steps, style: Theme.of(context).textTheme.bodyMedium),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -124,44 +146,63 @@ class _UploadScreenState extends State<UploadScreen> {
               ),
               const SizedBox(height: 20),
 
+              const SectionLabel('which file should i export?'),
+              const SizedBox(height: 6),
               Text(
-                'We accept a CSV summary (many runs in one file) or individual '
-                'GPX, TCX or FIT files. You can select several files at once.',
+                'Tap your app for the best file to export. You can select '
+                'several files at once.',
                 style: Theme.of(context).textTheme.bodyMedium,
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 10),
 
-              const SectionLabel('garmin (csv — all your runs at once)'),
-              const SizedBox(height: 8),
-              Text(
+              _appGuide(
+                'Garmin Connect',
+                'Best: CSV — all your runs in one file',
                 'On a computer at connect.garmin.com:\n'
                 '1. Menu → Activities → All Activities.\n'
-                '2. (Optional) filter to "Running" and pick a date range. Scroll '
-                'down to load all the activities you want included.\n'
-                '3. Click "Export CSV" at the top-right of the list.\n'
-                '4. Choose that downloaded CSV below.',
-                style: Theme.of(context).textTheme.bodyMedium,
+                '2. (Optional) filter to "Running" and pick a date range, then '
+                'scroll down to load every run you want included.\n'
+                '3. Click "Export CSV" (top-right of the list).\n'
+                '4. Choose that CSV below.\n\n'
+                'Single run: open it → the gear icon → "Export to TCX" (or GPX).',
               ),
-              const SizedBox(height: 16),
-              const SectionLabel('suunto, polar, coros… (fit or gpx files)'),
-              const SizedBox(height: 8),
-              Text(
-                'Suunto app: open a workout → tap ⋯ (top-right) → Export → '
-                'choose FIT (most accurate, and works for treadmill runs too) or '
-                'GPX. Repeat for each run, then select all the files here '
+              _appGuide(
+                'Suunto',
+                'Best: FIT — most accurate; works for treadmill runs too',
+                'Suunto app: open a workout → ⋯ (top-right) → Export → choose '
+                'FIT (or GPX). Repeat for each run, then select them all here '
                 'together.',
-                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+              _appGuide(
+                'Polar (Flow)',
+                'Best: TCX',
+                'On a computer at flow.polar.com: open a training session → ⋯ '
+                '(top-right) → "Export session" → TCX (or GPX). Repeat per run '
+                'and select them all here.',
+              ),
+              _appGuide(
+                'Coros',
+                'Best: FIT',
+                'COROS app: open an activity → ⋯ (top-right) → Export → FIT (or '
+                'TCX / GPX). Repeat per run and select them all here.',
+              ),
+              _appGuide(
+                'Strava',
+                'Best: CSV (whole history) or GPX per run',
+                'All runs at once (web): Settings → My Account → "Download or '
+                'Delete Your Account" → Request your archive. The zip you '
+                'receive contains activities.csv — upload that.\n\n'
+                'Single run (web): open it → "..." menu → "Export GPX".',
+              ),
+              _appGuide(
+                'Apple Watch / other apps',
+                'Best: GPX, TCX or FIT',
+                'Any app that can export GPX, TCX or FIT will work. Apple Watch '
+                'users: the simplest route is to let your runs sync to Strava '
+                '(or Garmin, COROS…) and export from there. Stuck? Email the '
+                'team and we\'ll help.',
               ),
               const SizedBox(height: 16),
-              const SectionLabel('strava (alternative)'),
-              const SizedBox(height: 8),
-              Text(
-                'Strava (web): Settings → My Account → "Download or Delete Your '
-                'Account" → Download Request. The zip you receive contains '
-                'activities.csv — upload that.',
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
-              const SizedBox(height: 20),
 
               OutlinedButton.icon(
                 onPressed: _pick,
