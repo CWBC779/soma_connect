@@ -6,8 +6,10 @@ import '../services/run_repository.dart';
 import '../themes/app_theme.dart';
 import '../widgets/shared_widgets.dart';
 
-/// Lets a participant upload an activities CSV exported from Garmin Connect
-/// (or Strava). Uses the browser's native file chooser (no plugin).
+/// Lets a participant upload activity files exported from their sports app —
+/// a CSV summary (Garmin Connect / Strava) or individual GPX/TCX files
+/// (Suunto, Garmin, Polar, Coros…). Multiple files can be chosen at once.
+/// Uses the browser's native file chooser (no plugin).
 class UploadScreen extends StatefulWidget {
   const UploadScreen({super.key});
 
@@ -21,32 +23,38 @@ class _UploadScreenState extends State<UploadScreen> {
   bool _busy = false;
   String? _result;
 
-  Future<void> _pick() async {
-    final input = html.FileUploadInputElement()..accept = '.csv,text/csv';
-    input.click();
-    await input.onChange.first;
-    final files = input.files;
-    if (files == null || files.isEmpty) return;
-    final file = files.first;
+  Future<Uint8List?> _read(html.File file) async {
     final reader = html.FileReader();
     reader.readAsArrayBuffer(file);
     await reader.onLoadEnd.first;
     final result = reader.result;
-    Uint8List? bytes;
-    if (result is ByteBuffer) {
-      bytes = result.asUint8List();
-    } else if (result is Uint8List) {
-      bytes = result;
-    } else if (result is List<int>) {
-      bytes = Uint8List.fromList(result);
+    if (result is ByteBuffer) return result.asUint8List();
+    if (result is Uint8List) return result;
+    if (result is List<int>) return Uint8List.fromList(result);
+    return null;
+  }
+
+  Future<void> _pick() async {
+    final input = html.FileUploadInputElement()
+      ..accept = '.csv,.gpx,.tcx'
+      ..multiple = true;
+    input.click();
+    await input.onChange.first;
+    final files = input.files;
+    if (files == null || files.isEmpty) return;
+
+    final picked = <NamedBytes>[];
+    for (final file in files) {
+      final bytes = await _read(file);
+      if (bytes != null) picked.add((name: file.name, bytes: bytes));
     }
-    if (bytes == null) return;
-    final b = bytes;
-    if (!mounted) return;
+    if (picked.isEmpty || !mounted) return;
     setState(() {
-      _fileName = file.name;
+      _fileName = picked.length == 1
+          ? picked.first.name
+          : '${picked.length} files selected';
       _result = null;
-      _preview = ActivityImporter.parseCsv(b);
+      _preview = ActivityImporter.parseFiles(picked);
     });
   }
 
@@ -116,21 +124,41 @@ class _UploadScreenState extends State<UploadScreen> {
               ),
               const SizedBox(height: 20),
 
-              const SectionLabel('garmin — how to export your runs'),
+              Text(
+                'We accept a CSV summary (many runs in one file) or individual '
+                'GPX / TCX files. You can select several files at once.',
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+              const SizedBox(height: 16),
+
+              const SectionLabel('garmin (csv — all your runs at once)'),
               const SizedBox(height: 8),
               Text(
-                'On a computer, go to connect.garmin.com and sign in, then:\n'
-                '1. Open the menu → Activities → All Activities.\n'
-                '2. (Optional) filter to "Running" and pick the date range you want.\n'
-                '3. Click "Export CSV" at the top-right of the activities list.\n'
-                '4. Come back here and choose that downloaded CSV file below.',
+                'On a computer at connect.garmin.com:\n'
+                '1. Menu → Activities → All Activities.\n'
+                '2. (Optional) filter to "Running" and pick a date range. Scroll '
+                'down to load all the activities you want included.\n'
+                '3. Click "Export CSV" at the top-right of the list.\n'
+                '4. Choose that downloaded CSV below.',
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+              const SizedBox(height: 16),
+              const SectionLabel('suunto, polar, coros… (gpx files)'),
+              const SizedBox(height: 8),
+              Text(
+                'Suunto app: open a workout → tap ⋯ (top-right) → Export → '
+                'choose GPX. Repeat for each run, then select all the GPX files '
+                'here together. (For treadmill runs with no GPS, see the FIT note '
+                'below.)',
                 style: Theme.of(context).textTheme.bodyMedium,
               ),
               const SizedBox(height: 16),
               const SectionLabel('strava (alternative)'),
               const SizedBox(height: 8),
               Text(
-                'Strava (web): Settings → My Account → "Download or Delete Your Account" → Download Request. The zip you receive contains activities.csv — upload that.',
+                'Strava (web): Settings → My Account → "Download or Delete Your '
+                'Account" → Download Request. The zip you receive contains '
+                'activities.csv — upload that.',
                 style: Theme.of(context).textTheme.bodySmall,
               ),
               const SizedBox(height: 20),
@@ -139,8 +167,8 @@ class _UploadScreenState extends State<UploadScreen> {
                 onPressed: _pick,
                 icon: const Icon(Icons.upload_file),
                 label: Text(_fileName == null
-                    ? 'Choose CSV file'
-                    : 'Choose a different file'),
+                    ? 'Choose files (CSV, GPX or TCX)'
+                    : 'Choose different files'),
               ),
               if (_fileName != null) ...[
                 const SizedBox(height: 8),
@@ -167,9 +195,17 @@ class _UploadScreenState extends State<UploadScreen> {
                                   .headlineMedium),
                           const SizedBox(height: 4),
                           Text(
-                            '${p.totalRows} rows read · ${p.skipped} skipped (couldn\'t read date/distance/time).',
+                            'From ${p.files} file${p.files == 1 ? '' : 's'} · ${p.skipped} skipped (couldn\'t read date/distance/time, or not a run).',
                             style: Theme.of(context).textTheme.bodySmall,
                           ),
+                          if (p.unsupported.isNotEmpty) ...[
+                            const SizedBox(height: 6),
+                            Text(
+                              '${p.unsupported.length} file${p.unsupported.length == 1 ? '' : 's'} couldn\'t be read (FIT isn\'t supported yet — export GPX instead): ${p.unsupported.join(', ')}',
+                              style: const TextStyle(
+                                  fontSize: 12, color: FemoraTheme.rose),
+                            ),
+                          ],
                         ],
                       ],
                     ),
@@ -208,7 +244,10 @@ class _UploadScreenState extends State<UploadScreen> {
 
               const SizedBox(height: 16),
               const DisclaimerBox(
-                'Distances are read as kilometres. If your export uses miles or a different date format and the run count looks off, let us know and we\'ll adjust.',
+                'CSV distances are read as kilometres. GPX distance is computed '
+                'from the GPS track, so it may differ by ~1% from your watch. If '
+                'a count looks off (e.g. a miles-based export), let us know and '
+                'we\'ll adjust.',
               ),
             ],
           );

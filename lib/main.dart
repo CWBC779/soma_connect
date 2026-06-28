@@ -39,8 +39,8 @@ class MyApp extends StatelessWidget {
   }
 }
 
-/// Routes: splash → welcome/connect-Strava → (consent) → app, driven by the
-/// Supabase session. Connecting Strava is the sign-in.
+/// Routes: splash → welcome (study-code sign-in) → (consent) → all-set → app,
+/// driven by the Supabase session. Entering a valid study code is the sign-in.
 class AppEntry extends StatefulWidget {
   const AppEntry({super.key});
 
