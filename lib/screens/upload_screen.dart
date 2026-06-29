@@ -35,9 +35,10 @@ class _UploadScreenState extends State<UploadScreen> {
   }
 
   Future<void> _pick() async {
-    final input = html.FileUploadInputElement()
-      ..accept = '.csv,.gpx,.tcx,.fit'
-      ..multiple = true;
+    // No `accept` filter on purpose: .fit and .tcx have no standard MIME type,
+    // so some browsers/OSes grey them out in the file dialog even when listed.
+    // We allow any file here and validate by extension in the parser instead.
+    final input = html.FileUploadInputElement()..multiple = true;
     input.click();
     await input.onChange.first;
     final files = input.files;
